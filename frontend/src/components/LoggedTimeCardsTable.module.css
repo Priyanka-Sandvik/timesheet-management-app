@@ -1,0 +1,72 @@
+.tableWrapper {
+  padding: 0 24px 24px;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 2px solid var(--color-border);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.taskCol {
+  min-width: 260px;
+}
+
+.taskName {
+  font-weight: 600;
+}
+
+.taskCode {
+  color: var(--color-text-faint);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.dayCol {
+  text-align: center;
+  width: 70px;
+}
+
+.totalCol {
+  text-align: center;
+  font-weight: 700;
+  background: var(--color-accent-light);
+  width: 70px;
+}
+
+.actionCol {
+  width: 32px;
+  text-align: center;
+}
+
+.removeBtn {
+  background: none;
+  border: none;
+  color: var(--color-text-faint);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.removeBtn:hover {
+  color: var(--color-danger);
+}

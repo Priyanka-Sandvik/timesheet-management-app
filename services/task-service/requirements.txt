@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+httpx
+azure-data-tables
+azure-identity
+PyJWT[crypto]
+cryptography
+openpyxl
+python-multipart
+pytest
+pytest-asyncio
+-e ../../shared/py-common

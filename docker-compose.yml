@@ -1,0 +1,106 @@
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: timesheet-azurite
+    command: >
+      azurite-table
+      --tableHost 0.0.0.0
+      --tablePort 10002
+      --location /data
+      --debug /data/debug.log
+    ports:
+      - "10002:10002"
+    volumes:
+      - azurite-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 10002 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  profile-service:
+    build:
+      context: .
+      dockerfile: services/profile-service/Dockerfile
+    container_name: timesheet-profile-service
+    depends_on:
+      azurite:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+    environment:
+      ENVIRONMENT: local
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;TableEndpoint=http://azurite:10002/devstoreaccount1;"
+      USERS_TABLE_NAME: Users
+      USE_LOCAL_KEY: "true"
+      LOCAL_KEY_DIR: /app/.keys
+      JWT_EXPIRY_HOURS: 8
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-admin1@sandvik.com,admin2@sandvik.com}
+      ALLOWED_EMAIL_DOMAIN: ${ALLOWED_EMAIL_DOMAIN:-sandvik.com}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost:5173}
+      AUTH_RATE_LIMIT_PER_MINUTE: 20
+      PORT: 8001
+      # Profile Service verifies its own issued tokens; localhost:8001 is reachable both
+      # from the host (smoke-test script) and is what it advertises to other services below.
+      JWKS_URL: http://localhost:8001/.well-known/jwks.json
+    volumes:
+      - profile-keys:/app/.keys
+
+  task-service:
+    build:
+      context: .
+      dockerfile: services/task-service/Dockerfile
+    container_name: timesheet-task-service
+    depends_on:
+      azurite:
+        condition: service_healthy
+      profile-service:
+        condition: service_started
+    ports:
+      - "8002:8002"
+    environment:
+      ENVIRONMENT: local
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;TableEndpoint=http://azurite:10002/devstoreaccount1;"
+      TASKS_TABLE_NAME: Tasks
+      # Task Service calls Profile Service over the Docker network by service name.
+      PROFILE_SERVICE_BASE_URL: http://profile-service:8001
+      # ...but JWKS verification must use the SAME issuer URL Profile Service put in the
+      # token's `iss`/key-id metadata context as the rest of the stack (localhost:8001, since
+      # that's what the smoke-test script and frontend also use) to keep JWKS caching keyed
+      # consistently; JWKS fetch itself works fine cross-container too, so route it via the
+      # service name for reliability inside Compose.
+      JWKS_URL: http://profile-service:8001/.well-known/jwks.json
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost:5173}
+      PORT: 8002
+      JWT_ISSUER: profile-service
+      VALIDATE_ASSIGN_EMAILS_WITH_PROFILE_SERVICE: "true"
+      PROFILE_SERVICE_TIMEOUT_SECONDS: 5.0
+      DEFAULT_ADMIN_LIST_PAGE_SIZE: 50
+
+  timelog-service:
+    build:
+      context: .
+      dockerfile: services/timelog-service/Dockerfile
+    container_name: timesheet-timelog-service
+    depends_on:
+      azurite:
+        condition: service_healthy
+      profile-service:
+        condition: service_started
+      task-service:
+        condition: service_started
+    ports:
+      - "8003:8003"
+    environment:
+      ENVIRONMENT: local
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;TableEndpoint=http://azurite:10002/devstoreaccount1;"
+      TIMESHEET_TABLE_NAME: Timesheet
+      TASK_SERVICE_BASE_URL: http://task-service:8002
+      PROFILE_SERVICE_BASE_URL: http://profile-service:8001
+      JWKS_URL: http://profile-service:8001/.well-known/jwks.json
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost:5173}
+      PORT: 8003
+
+volumes:
+  azurite-data:
+  profile-keys:

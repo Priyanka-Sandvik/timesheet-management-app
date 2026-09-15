@@ -1,0 +1,30 @@
+.container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+}
+
+.toast {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: 14px;
+  max-width: 360px;
+  color: #fff;
+}
+
+.error {
+  background: var(--color-danger);
+}
+
+.success {
+  background: var(--color-success);
+}
+
+.info {
+  background: var(--color-text);
+}

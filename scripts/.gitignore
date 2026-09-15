@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment files
+.env
+.env.local
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+*.log

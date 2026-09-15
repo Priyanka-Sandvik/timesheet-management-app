@@ -1,0 +1,30 @@
+:root {
+  /* Generic corporate accent palette - amber/gold + neutral gray, NOT Sandvik brand colors */
+  --color-accent: #a68239;
+  --color-accent-dark: #8a6b2c;
+  --color-accent-light: #f1e6d2;
+  --color-bg: #ffffff;
+  --color-bg-muted: #f7f7f8;
+  --color-border: #e0e0e2;
+  --color-text: #1f2124;
+  --color-text-muted: #6b6f76;
+  --color-text-faint: #9a9ea6;
+
+  --color-success: #2e7d46;
+  --color-success-bg: #e4f3e8;
+  --color-warning: #a68239;
+  --color-warning-bg: #f1e6d2;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fbe9e7;
+  --color-neutral: #6b6f76;
+  --color-neutral-bg: #ececee;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  --font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}

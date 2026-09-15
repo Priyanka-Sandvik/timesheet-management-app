@@ -1,0 +1,117 @@
+.wrapper {
+  max-width: 720px;
+}
+
+.referenceBox {
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+.referenceTitle {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.referenceColumns {
+  font-family: monospace;
+  color: var(--color-text-muted);
+}
+
+.dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--color-bg);
+}
+
+.dropzoneActive {
+  border-color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+
+.dropzoneText {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.browseBtn {
+  padding: 8px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.fileInput {
+  display: none;
+}
+
+.selectedFile {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.actionsRow {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.uploadBtn {
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.uploadBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.summary {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.summaryText {
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.errorToggle {
+  background: none;
+  border: none;
+  color: var(--color-accent-dark);
+  font-size: 13px;
+  padding: 0;
+}
+
+.errorTable {
+  margin-top: 10px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.errorTable th,
+.errorTable td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+}

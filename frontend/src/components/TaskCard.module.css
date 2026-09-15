@@ -1,0 +1,43 @@
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--color-bg);
+}
+
+.title {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.35;
+  margin-bottom: 6px;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.dot {
+  color: var(--color-text-faint);
+  font-size: 10px;
+}
+
+.updated {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.assignmentNote {
+  font-size: 12px;
+  color: var(--color-accent-dark);
+  margin-bottom: 4px;
+}
+
+.taskCode {
+  font-size: 12px;
+  color: var(--color-text-faint);
+}

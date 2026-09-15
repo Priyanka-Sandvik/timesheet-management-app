@@ -1,0 +1,26 @@
+# Core web framework
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.6.0
+pydantic[email]>=2.6.0
+pydantic-settings>=2.2.0
+python-multipart>=0.0.9
+
+# Auth / crypto
+argon2-cffi>=23.1.0
+PyJWT[crypto]>=2.8.0
+cryptography>=42.0.0
+httpx>=0.27.0
+
+# Azure Table Storage
+azure-data-tables>=12.5.0
+azure-identity>=1.15.0
+
+# Test tooling
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+
+# Shared internal package. Relative path only works when running locally with this exact
+# repo layout (services/profile-service/ two levels below shared/py-common/). The Docker
+# build handles this differently -- see the comment at the top of Dockerfile.
+-e ../../shared/py-common
