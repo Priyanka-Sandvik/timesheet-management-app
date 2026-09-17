@@ -23,8 +23,6 @@ logger = configure_logging()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     table_client = get_async_table_service_client(
-        environment=settings.ENVIRONMENT,
-        account_url=settings.AZURE_STORAGE_ACCOUNT_URL or None,
         connection_string=settings.AZURE_STORAGE_CONNECTION_STRING or None,
     )
     await ensure_table_exists_async(table_client, settings.TIMESHEET_TABLE_NAME)

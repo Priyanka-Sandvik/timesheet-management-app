@@ -3,11 +3,9 @@
 Supports two key-source strategies behind a common `KeySource` interface:
 - `LocalFileKeySource`: generates (once) / loads an RSA keypair from local disk.
   Activated via `USE_LOCAL_KEY=true` for local dev and tests.
-- `KeyVaultKeySource`: stub for reading the private key from Azure Key Vault via
-  Managed Identity. NOT IMPLEMENTED YET — raises NotImplementedError. Swapping
-  this in for real Key Vault support later is a one-line change in
-  `services/profile-service/app/core/jwt.py` (construct `KeyVaultKeySource` instead
-  of `LocalFileKeySource` based on `USE_LOCAL_KEY`).
+- `KeyVaultKeySource`: reads the private key, public key, and kid from Azure Key Vault
+  secrets via Managed Identity (`DefaultAzureCredential`). Used in production
+  (`USE_LOCAL_KEY=false`).
 """
 from __future__ import annotations
 
@@ -17,6 +15,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 import jwt
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
@@ -85,38 +85,49 @@ class LocalFileKeySource(KeySource):
 
 
 class KeyVaultKeySource(KeySource):
-    """Stub for reading the JWT signing key from Azure Key Vault via Managed Identity.
+    """Reads the JWT signing private key, public key, and kid from Azure Key Vault secrets.
 
-    TODO(prod): Implement using `azure.identity.DefaultAzureCredential` +
-    `azure.keyvault.secrets.SecretClient` (or `azure.keyvault.keys.KeyClient` if using a
-    Key Vault Key rather than a Secret) to fetch the RSA private key referenced by
-    `KEY_VAULT_URL` / `JWT_KEY_NAME` (see architecture doc §11). Cache the material in
-    memory with a short TTL. Until implemented, deployments must set `USE_LOCAL_KEY=true`
-    and use `LocalFileKeySource` instead.
+    Authenticates via `DefaultAzureCredential`, which resolves to the Container App's
+    system-assigned Managed Identity in Azure and to `az login` / env-var credentials
+    locally. Each secret is expected to hold its value as plain text (PEM for the two key
+    secrets, the raw kid string for the kid secret) and is cached in memory for
+    `cache_ttl_seconds` to avoid a Key Vault round-trip on every token issuance.
     """
 
-    def __init__(self, key_vault_url: str, key_name: str) -> None:
-        self._key_vault_url = key_vault_url
-        self._key_name = key_name
+    def __init__(
+        self,
+        key_vault_url: str,
+        private_key_secret_name: str,
+        public_key_secret_name: str,
+        kid_secret_name: str,
+        cache_ttl_seconds: int = 300,
+    ) -> None:
+        self._private_key_secret_name = private_key_secret_name
+        self._public_key_secret_name = public_key_secret_name
+        self._kid_secret_name = kid_secret_name
+        self._cache_ttl_seconds = cache_ttl_seconds
+        self._client = SecretClient(vault_url=key_vault_url, credential=DefaultAzureCredential())
+        self._cache: dict[str, tuple[float, str]] = {}
+
+    def _get_secret(self, name: str) -> str:
+        cached = self._cache.get(name)
+        now = time.monotonic()
+        if cached is not None and now - cached[0] < self._cache_ttl_seconds:
+            return cached[1]
+        value = self._client.get_secret(name).value
+        if not value:
+            raise RuntimeError(f"Key Vault secret '{name}' is missing or empty")
+        self._cache[name] = (now, value)
+        return value
 
     def get_private_key_pem(self) -> bytes:
-        raise NotImplementedError(
-            "KeyVaultKeySource is not implemented yet. Set USE_LOCAL_KEY=true to use "
-            "LocalFileKeySource for now. TODO(prod): fetch signing key from Azure Key Vault "
-            "via DefaultAzureCredential."
-        )
+        return self._get_secret(self._private_key_secret_name).encode("utf-8")
 
     def get_public_key_pem(self) -> bytes:
-        raise NotImplementedError(
-            "KeyVaultKeySource is not implemented yet. Set USE_LOCAL_KEY=true to use "
-            "LocalFileKeySource for now."
-        )
+        return self._get_secret(self._public_key_secret_name).encode("utf-8")
 
     def get_kid(self) -> str:
-        raise NotImplementedError(
-            "KeyVaultKeySource is not implemented yet. Set USE_LOCAL_KEY=true to use "
-            "LocalFileKeySource for now."
-        )
+        return self._get_secret(self._kid_secret_name)
 
 
 class JwtIssuer:

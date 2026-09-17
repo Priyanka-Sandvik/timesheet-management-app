@@ -14,14 +14,14 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # --- Azure Table Storage ---
-    AZURE_STORAGE_ACCOUNT_URL: str = ""
     USERS_TABLE_NAME: str = "Users"
-    ENVIRONMENT: str = "local"
     AZURE_STORAGE_CONNECTION_STRING: str = ""
 
     # --- JWT signing key source ---
     KEY_VAULT_URL: str = ""
-    JWT_KEY_NAME: str = ""
+    JWT_PRIVATE_KEY_SECRET_NAME: str = "jwt-private-key"
+    JWT_PUBLIC_KEY_SECRET_NAME: str = "jwt-public-key"
+    JWT_KID_SECRET_NAME: str = "jwt-kid"
     JWT_EXPIRY_HOURS: int = 8
     USE_LOCAL_KEY: bool = True
     LOCAL_KEY_DIR: str = "./.keys"

@@ -126,9 +126,85 @@ def test_missing_token_rejected(issuer, monkeypatch):
     assert resp.status_code == 401
 
 
-def test_key_vault_key_source_not_implemented():
+def _fake_secret_client(secrets: dict[str, str]):
+    fake_client = SimpleNamespace(
+        get_secret=lambda name: SimpleNamespace(value=secrets.get(name))
+    )
+    return fake_client
+
+
+def test_key_vault_key_source_reads_secrets(monkeypatch, tmp_path):
     from py_common.core.jwt_issue import KeyVaultKeySource
 
-    source = KeyVaultKeySource(key_vault_url="https://fake.vault.azure.net", key_name="jwt-signing-key")
-    with pytest.raises(NotImplementedError):
-        source.get_private_key_pem()
+    local_source = LocalFileKeySource(tmp_path / "keys")
+    secrets = {
+        "priv": local_source.get_private_key_pem().decode("utf-8"),
+        "pub": local_source.get_public_key_pem().decode("utf-8"),
+        "kid": local_source.get_kid(),
+    }
+    monkeypatch.setattr(
+        "py_common.core.jwt_issue.SecretClient",
+        lambda vault_url, credential: _fake_secret_client(secrets),
+    )
+    monkeypatch.setattr("py_common.core.jwt_issue.DefaultAzureCredential", lambda: None)
+
+    source = KeyVaultKeySource(
+        key_vault_url="https://fake.vault.azure.net",
+        private_key_secret_name="priv",
+        public_key_secret_name="pub",
+        kid_secret_name="kid",
+    )
+    assert source.get_private_key_pem() == local_source.get_private_key_pem()
+    assert source.get_public_key_pem() == local_source.get_public_key_pem()
+    assert source.get_kid() == local_source.get_kid()
+
+
+def test_key_vault_key_source_raises_on_missing_secret(monkeypatch):
+    from py_common.core.jwt_issue import KeyVaultKeySource
+
+    monkeypatch.setattr(
+        "py_common.core.jwt_issue.SecretClient",
+        lambda vault_url, credential: _fake_secret_client({}),
+    )
+    monkeypatch.setattr("py_common.core.jwt_issue.DefaultAzureCredential", lambda: None)
+
+    source = KeyVaultKeySource(
+        key_vault_url="https://fake.vault.azure.net",
+        private_key_secret_name="priv",
+        public_key_secret_name="pub",
+        kid_secret_name="kid",
+    )
+    with pytest.raises(RuntimeError):
+        source.get_kid()
+
+
+def test_key_vault_public_key_source_verifies_and_checks_kid(monkeypatch, tmp_path):
+    from py_common.core.jwt_verify import KeyVaultPublicKeySource
+
+    local_source = LocalFileKeySource(tmp_path / "keys")
+    jwt_issuer = JwtIssuer(local_source, expiry_hours=8, issuer="profile-service")
+    token, _ = jwt_issuer.issue_token(email="alice@sandvik.com", is_admin=False)
+
+    secrets = {
+        "pub": local_source.get_public_key_pem().decode("utf-8"),
+        "kid": local_source.get_kid(),
+    }
+    monkeypatch.setattr(
+        "py_common.core.jwt_verify.SecretClient",
+        lambda vault_url, credential: _fake_secret_client(secrets),
+    )
+    monkeypatch.setattr("py_common.core.jwt_verify.DefaultAzureCredential", lambda: None)
+
+    key_source = KeyVaultPublicKeySource(
+        key_vault_url="https://fake.vault.azure.net",
+        public_key_secret_name="pub",
+        kid_secret_name="kid",
+        cache_ttl_seconds=0,
+    )
+    signing_key = key_source.get_signing_key(token)
+    claims = jwt.decode(token, signing_key, algorithms=["RS256"], issuer="profile-service")
+    assert claims["sub"] == "alice@sandvik.com"
+
+    secrets["kid"] = "some-other-kid"
+    with pytest.raises(HTTPException):
+        key_source.get_signing_key(token)

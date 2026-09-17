@@ -14,17 +14,21 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # --- Azure Table Storage ---
-    AZURE_STORAGE_ACCOUNT_URL: str = ""
     TASKS_TABLE_NAME: str = "Tasks"
-    ENVIRONMENT: str = "local"
     AZURE_STORAGE_CONNECTION_STRING: str = ""
 
     # --- Profile Service integration ---
     PROFILE_SERVICE_BASE_URL: str = "http://localhost:8001"
 
     # --- JWT verification (Task Service verifies tokens issued by Profile Service) ---
+    USE_LOCAL_KEY: bool = True
     JWKS_URL: str = "http://localhost:8001/.well-known/jwks.json"
     JWT_ISSUER: str = "profile-service"
+
+    # --- JWT verification key source, production only (USE_LOCAL_KEY=false) ---
+    KEY_VAULT_URL: str = ""
+    JWT_PUBLIC_KEY_SECRET_NAME: str = "jwt-signing-public-key"
+    JWT_KID_SECRET_NAME: str = "jwt-signing-kid"
 
     # --- CORS ---
     CORS_ALLOWED_ORIGIN: str = "https://localhost"

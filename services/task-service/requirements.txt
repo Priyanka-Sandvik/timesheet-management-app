@@ -5,6 +5,7 @@ pydantic-settings
 httpx
 azure-data-tables
 azure-identity
+azure-keyvault-secrets
 PyJWT[crypto]
 cryptography
 openpyxl

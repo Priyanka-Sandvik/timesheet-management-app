@@ -20,11 +20,7 @@ from app.services.user_service import UserService
 @lru_cache
 def get_table_service_client_singleton():
     settings = get_settings()
-    return get_table_service_client(
-        environment=settings.ENVIRONMENT,
-        account_url=settings.AZURE_STORAGE_ACCOUNT_URL or None,
-        connection_string=settings.AZURE_STORAGE_CONNECTION_STRING or None,
-    )
+    return get_table_service_client(connection_string=settings.AZURE_STORAGE_CONNECTION_STRING or None)
 
 
 @lru_cache

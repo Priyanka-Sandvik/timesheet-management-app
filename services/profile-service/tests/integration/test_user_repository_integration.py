@@ -40,7 +40,7 @@ def user_repository():
     from app.repositories.user_repository import UserRepository
 
     table_name = f"UsersTest{uuid.uuid4().hex[:8]}"
-    service_client = get_table_service_client(environment="local", connection_string=AZURITE_CONNECTION_STRING)
+    service_client = get_table_service_client(connection_string=AZURITE_CONNECTION_STRING)
     ensure_table_exists(service_client, table_name)
     table_client = service_client.get_table_client(table_name)
     try:
