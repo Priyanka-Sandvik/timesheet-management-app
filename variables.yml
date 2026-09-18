@@ -1,0 +1,41 @@
+KEY_VAULT_URL: https://timesheet-key-vault.vault.azure.net/
+JWT_PRIVATE_KEY_SECRET_NAME: jwt-private-key
+JWT_PUBLIC_KEY_SECRET_NAME: jwt-public-key
+JWT_KID_SECRET_NAME: jwt-kid
+
+USERS_TABLE_NAME: Users
+JWT_EXPIRY_HOURS: 8
+ADMIN_EMAILS: admin1@sandvik.com,admin2@sandvik.com
+ALLOWED_EMAIL_DOMAIN: sandvik.com
+CORS_ALLOWED_ORIGIN: https://red-moss-0342e4b03.6.azurestaticapps.net
+AUTH_RATE_LIMIT_PER_MINUTE: 20
+
+AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=https;AccountName=storagetimesheetapp;AccountKey=DsJ9kTsO6FWwYfPl/ZAhxnVj9ImPnJy3dbzlv6/eSIWB3roGO0twUeutvc3rdzgNIpC1GpaGTD8l+ASt1dHxzw==;EndpointSuffix=core.windows.net
+
+USE_LOCAL_KEY: false
+
+PROFILE_SERVICE_PORT: 8001
+JWKS_URL: http://localhost:8001/.well-known/jwks.json
+
+TASKS_TABLE_NAME: Tasks
+TASK_SERVICE_PORT: 8002
+
+JWT_ISSUER: profile-service
+VALIDATE_ASSIGN_EMAILS_WITH_PROFILE_SERVICE: true
+PROFILE_SERVICE_TIMEOUT_SECONDS: 5.0
+DEFAULT_ADMIN_LIST_PAGE_SIZE: 50
+
+TIMESHEET_TABLE_NAME: Timesheet
+TASK_SERVICE_BASE_URL: http://localhost:8002
+PROFILE_SERVICE_BASE_URL: http://localhost:8001
+
+TIMELOG_SERVICE_PORT: 8003
+
+AZ_ACR_NAME: timesheetintregistry
+AZ_ACR_LOGIN_SERVER: timesheetintregistry.azurecr.io
+AZ_ACR_USERNAME: timesheetintregistry
+AZ_ACR_PASSWORD: AAaoFfpEnLfUbQZrYG6CYlacOepVROgKixLYLu3b9W3vaE00GmHBJQQJ99CIAC5RqLJEqg7NAAACAZCRghYb
+
+AZ_RESOURCE_GROUP: rg-timesheet-app
+
+AZ_CONTAINERAPP_ENV_NAME: timesheet-int-ca-env

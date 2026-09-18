@@ -2,8 +2,6 @@
 .env
 .env.local
 .env.*.local
-variables.yml
-variables.local.yml
 *.secrets.yml
 secrets.yml
 
