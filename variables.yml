@@ -10,7 +10,7 @@ ALLOWED_EMAIL_DOMAIN: sandvik.com
 CORS_ALLOWED_ORIGIN: https://red-moss-0342e4b03.6.azurestaticapps.net
 AUTH_RATE_LIMIT_PER_MINUTE: 20
 
-AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=https;AccountName=storagetimesheetapp;AccountKey=DsJ9kTsO6FWwYfPl/ZAhxnVj9ImPnJy3dbzlv6/eSIWB3roGO0twUeutvc3rdzgNIpC1GpaGTD8l+ASt1dHxzw==;EndpointSuffix=core.windows.net
+AZURE_STORAGE_CONNECTION_STRING: keyvaultref:https://timesheet-key-vault.vault.azure.net/secrets/AZURE-STORAGE-CONNECTION-STRING/88bbc00cad824d249be48b67d22bbc29
 
 USE_LOCAL_KEY: false
 
@@ -34,7 +34,7 @@ TIMELOG_SERVICE_PORT: 8003
 AZ_ACR_NAME: timesheetintregistry
 AZ_ACR_LOGIN_SERVER: timesheetintregistry.azurecr.io
 AZ_ACR_USERNAME: timesheetintregistry
-AZ_ACR_PASSWORD: AAaoFfpEnLfUbQZrYG6CYlacOepVROgKixLYLu3b9W3vaE00GmHBJQQJ99CIAC5RqLJEqg7NAAACAZCRghYb
+AZ_ACR_PASSWORD: keyvaultref:https://timesheet-key-vault.vault.azure.net/secrets/AZ-ACR-PASSWORD/53d622724cec44c4940e61a19a0ce8b4
 
 AZ_RESOURCE_GROUP: rg-timesheet-app
 
