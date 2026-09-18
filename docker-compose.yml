@@ -30,7 +30,7 @@ services:
       - "8001:8001"
     environment:
       ENVIRONMENT: local
-      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;TableEndpoint=http://azurite:10002/devstoreaccount1;"
+      AZURE_STORAGE_CONNECTION_STRING: ""
       USERS_TABLE_NAME: Users
       USE_LOCAL_KEY: "true"
       LOCAL_KEY_DIR: /app/.keys
@@ -60,7 +60,7 @@ services:
       - "8002:8002"
     environment:
       ENVIRONMENT: local
-      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;TableEndpoint=http://azurite:10002/devstoreaccount1;"
+      AZURE_STORAGE_CONNECTION_STRING: ""
       TASKS_TABLE_NAME: Tasks
       # Task Service calls Profile Service over the Docker network by service name.
       PROFILE_SERVICE_BASE_URL: http://profile-service:8001
@@ -93,7 +93,7 @@ services:
       - "8003:8003"
     environment:
       ENVIRONMENT: local
-      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;TableEndpoint=http://azurite:10002/devstoreaccount1;"
+      AZURE_STORAGE_CONNECTION_STRING: ""
       TIMESHEET_TABLE_NAME: Timesheet
       TASK_SERVICE_BASE_URL: http://task-service:8002
       PROFILE_SERVICE_BASE_URL: http://profile-service:8001
