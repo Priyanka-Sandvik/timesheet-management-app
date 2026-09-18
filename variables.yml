@@ -33,9 +33,12 @@ TIMELOG_SERVICE_PORT: 8003
 
 AZ_ACR_NAME: timesheetintregistry
 AZ_ACR_LOGIN_SERVER: timesheetintregistry.azurecr.io
+AZ_REGITSRY_ID: /subscriptions/84e3aa83-7aa4-4846-ac7c-1853604445db/resourceGroups/rg-timesheet-app/providers/Microsoft.ContainerRegistry/registries/timesheetintregistry
 AZ_ACR_USERNAME: timesheetintregistry
 AZ_ACR_PASSWORD: keyvaultref:https://timesheet-key-vault.vault.azure.net/secrets/AZ-ACR-PASSWORD/53d622724cec44c4940e61a19a0ce8b4
 
 AZ_RESOURCE_GROUP: rg-timesheet-app
 
-AZ_CONTAINERAPP_ENV_NAME: timesheet-int-ca-env
+AZ_CONTAINERAPP_ENV_NAME: timesheet-internal-ca-env
+AZ_CONTAINERAPP_MIN_REPLICAS: 1
+AZ_CONTAINERAPP_MAX_REPLICAS: 2
