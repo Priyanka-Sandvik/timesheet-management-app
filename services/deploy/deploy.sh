@@ -23,62 +23,43 @@ get_acr_password() {
   local kvref
   kvref="$(get_yaml_value_from_file "$file" "AZ_ACR_PASSWORD")"
 
-  if [[ "$kvref" =~ ^keyvaultref:https://([^.]+)\.vault\.azure\.net/secrets/([^/]+)$ ]]; then
-    az keyvault secret show \
+  # Accept both unversioned and versioned Key Vault secret URIs.
+  if [[ "$kvref" =~ ^keyvaultref:https://([^.]+)\.vault\.azure\.net/secrets/([^/]+)(/[^/]+)?$ ]]; then
+    if az keyvault secret show \
       --vault-name "${BASH_REMATCH[1]}" \
       --name "${BASH_REMATCH[2]}" \
       --query "value" \
-      --output tsv
-    return
-  fi
-
-  if [ -n "$kvref" ]; then
+      --output tsv 2>/dev/null; then
+      return
+    fi
+    echo "⚠️ Could not read ACR password from Key Vault; falling back to ACR admin credentials" >&2
+  elif [ -n "$kvref" ] && [[ ! "$kvref" =~ ^keyvaultref: ]]; then
     echo "$kvref"
     return
   fi
 
-  echo "❌ AZ_ACR_PASSWORD is missing or invalid in $file" >&2
-  exit 1
+  az acr credential show \
+    --name "$(get_yaml_value_from_file "$file" "AZ_ACR_NAME")" \
+    --subscription "$(get_yaml_value_from_file "$file" "AZ_SUBSCRIPTION_ID")" \
+    --query "passwords[0].value" \
+    --output tsv
 }
 
-TAG_RELEASE="latest"
-
-# ---------------------------------------------------
-# Load SHARED values
-# ---------------------------------------------------
-AZ_RESOURCE_GROUP="$(get_yaml_value_from_file "$VARS_FILE" "AZ_RESOURCE_GROUP")"
-AZ_CONTAINERAPP_ENV_NAME="$(get_yaml_value_from_file "$VARS_FILE" "AZ_CONTAINERAPP_ENV_NAME")"
-AZ_ACR_NAME="$(get_yaml_value_from_file "$VARS_FILE" "AZ_ACR_NAME")"
-AZ_ACR_LOGIN_SERVER="$(get_yaml_value_from_file "$VARS_FILE" "AZ_ACR_LOGIN_SERVER")"
-AZ_ACR_PASSWORD="$(get_acr_password "$VARS_FILE")"
-MIN_REPLICAS="$(get_yaml_value_from_file "$VARS_FILE" "AZ_CONTAINERAPP_MIN_REPLICAS")"
-MAX_REPLICAS="$(get_yaml_value_from_file "$VARS_FILE" "AZ_CONTAINERAPP_MAX_REPLICAS")"
-
-if [ -z "$AZ_RESOURCE_GROUP" ] || [ -z "$AZ_CONTAINERAPP_ENV_NAME" ] || \
-   [ -z "$AZ_ACR_NAME" ] || [ -z "$AZ_ACR_LOGIN_SERVER" ] || \
-   [ -z "$MIN_REPLICAS" ] || [ -z "$MAX_REPLICAS" ]; then
-  echo "❌ Missing required shared configuration in $VARS_FILE"
-  exit 1
-fi
-
-# ---------------------------------------------------
-# Build environment and secrets 
-# ---------------------------------------------------
+# Build env/secret strings from an explicit allow-list of variables.yml keys.
+# Prints env line, then "---", then secrets line.
 build_env_and_secrets() {
-  local file="$1"
   local envs=""
   local secrets=""
+  local key value env_key safe_secret_name
 
-  while IFS=: read -r raw_key raw_value; do
-    key=$(echo "$raw_key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    value=$(echo "$raw_value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-    if [[ -z "$key" ]] || [[ "$key" =~ ^# ]]; then
+  for key in "$@"; do
+    if [[ "$key" == PORT=* ]]; then
+      envs+=" PORT=${key#PORT=}"
       continue
     fi
-    value=$(echo "$value" | sed 's/^"\(.*\)"$/\1/; s/^'\''\(.*\)'\''$/\1/')
 
-    if [[ "$key" == "AZ_ACR_PASSWORD" || "$key" == "AZ-ACR-PASSWORD" ]]; then
+    value="$(get_yaml_value_from_file "$VARS_FILE" "$key")"
+    if [ -z "$value" ]; then
       continue
     fi
 
@@ -89,12 +70,9 @@ build_env_and_secrets() {
       secrets+=" ${safe_secret_name}=${value},identityref:system"
       envs+=" ${env_key}=secretref:${safe_secret_name}"
     else
-      if [ -n "$value" ]; then
-        envs+=" ${env_key}=${value}"
-      fi
+      envs+=" ${env_key}=${value}"
     fi
-
-  done < <(grep -E '^[A-Z0-9_-]+:' "$file")
+  done
 
   envs="$(echo "$envs" | xargs)"
   secrets="$(echo "$secrets" | xargs)"
@@ -104,78 +82,173 @@ build_env_and_secrets() {
   echo "$secrets"
 }
 
-# ---------------------------------------------------
-# Deploy a service (update, fallback to create)
-# ---------------------------------------------------
+app_exists() {
+  az containerapp show \
+    --resource-group "$AZ_RESOURCE_GROUP" \
+    --name "$1" \
+    --subscription "$AZ_SUBSCRIPTION_ID" \
+    >/dev/null 2>&1
+}
+
 deploy_service() {
   local containerapp_name="$1"
   local source_repo="$2"
   local port="$3"
   local ingress="$4"
+  shift 4
+  local env_keys=("$@")
 
   local image_full="${AZ_ACR_LOGIN_SERVER}/${source_repo}:${TAG_RELEASE}"
   echo "🚀 Deploying $image_full to container app: $containerapp_name"
 
   local tmp_output envs secrets
-  tmp_output=$(build_env_and_secrets "$VARS_FILE")
+  tmp_output=$(build_env_and_secrets "${env_keys[@]}" "PORT=${port}")
   envs=$(echo "$tmp_output" | sed -n '1p')
   secrets=$(echo "$tmp_output" | sed -n '3p')
 
-  set +e
-  az containerapp update \
-    --resource-group "$AZ_RESOURCE_GROUP" \
-    --name "$containerapp_name" \
-    --image "$image_full" \
-    --set-env-vars $envs \
-    --secrets $secrets \
-    --container-name "$containerapp_name" \
-    --registry-server "$AZ_ACR_LOGIN_SERVER" \
-    --registry-username "$AZ_ACR_NAME" \
-    --registry-password "$AZ_ACR_PASSWORD" >/dev/null 2>&1
-  status=$?
-  set -e
+  if app_exists "$containerapp_name"; then
+    echo "ℹ️ Updating existing app $containerapp_name"
 
-  if [ $status -ne 0 ]; then
-    echo "ℹ️ $containerapp_name not found or update failed. Creating new container app..."
-    az containerapp create \
-      --resource-group "$AZ_RESOURCE_GROUP" \
+    if [ -n "$secrets" ]; then
+      # update does not accept --secrets
+      az containerapp secret set \
+        --name "$containerapp_name" \
+        --resource-group "$AZ_RESOURCE_GROUP" \
+        --subscription "$AZ_SUBSCRIPTION_ID" \
+        --secrets $secrets
+    fi
+
+    az containerapp registry set \
       --name "$containerapp_name" \
-      --environment "$AZ_CONTAINERAPP_ENV_NAME" \
+      --resource-group "$AZ_RESOURCE_GROUP" \
+      --subscription "$AZ_SUBSCRIPTION_ID" \
+      --server "$AZ_ACR_LOGIN_SERVER" \
+      --username "$AZ_ACR_NAME" \
+      --password "$AZ_ACR_PASSWORD" \
+      --only-show-errors >/dev/null
+
+    az containerapp update \
+      --name "$containerapp_name" \
+      --resource-group "$AZ_RESOURCE_GROUP" \
+      --subscription "$AZ_SUBSCRIPTION_ID" \
       --image "$image_full" \
-      --secrets $secrets \
-      --env-vars $envs \
-      --target-port "$port" \
-      --ingress "$ingress" \
+      --set-env-vars $envs \
+      --container-name "$containerapp_name" \
       --cpu 0.5 --memory 1.0Gi \
-      --min-replicas "$MIN_REPLICAS" --max-replicas "$MAX_REPLICAS" \
-      --registry-server "$AZ_ACR_LOGIN_SERVER" \
-      --registry-username "$AZ_ACR_NAME" \
-      --registry-password "$AZ_ACR_PASSWORD" \
-      --system-assigned \
-      --scale-rule-name http-concurrency \
+      --min-replicas "$MIN_REPLICAS" --max-replicas "$MAX_REPLICAS"
+
+    az containerapp ingress update \
+      --name "$containerapp_name" \
+      --resource-group "$AZ_RESOURCE_GROUP" \
+      --subscription "$AZ_SUBSCRIPTION_ID" \
+      --target-port "$port" \
+      --type "$ingress"
+  else
+    echo "ℹ️ Creating container app $containerapp_name"
+    local create_args=(
+      --name "$containerapp_name"
+      --resource-group "$AZ_RESOURCE_GROUP"
+      --subscription "$AZ_SUBSCRIPTION_ID"
+      --environment "$AZ_CONTAINERAPP_ENV_NAME"
+      --image "$image_full"
+      --env-vars $envs
+      --target-port "$port"
+      --ingress "$ingress"
+      --cpu 0.5 --memory 1.0Gi
+      --min-replicas "$MIN_REPLICAS" --max-replicas "$MAX_REPLICAS"
+      --registry-server "$AZ_ACR_LOGIN_SERVER"
+      --registry-username "$AZ_ACR_NAME"
+      --registry-password "$AZ_ACR_PASSWORD"
+      --system-assigned
+      --scale-rule-name http-concurrency
       --scale-rule-http-concurrency 8
+    )
+    if [ -n "$secrets" ]; then
+      az containerapp create "${create_args[@]}" --secrets $secrets
+    else
+      az containerapp create "${create_args[@]}"
+    fi
   fi
 
-  echo "✅ Deployed image: $image_full to $containerapp_name"
+  local fqdn
+  fqdn=$(az containerapp show \
+    --name "$containerapp_name" \
+    --resource-group "$AZ_RESOURCE_GROUP" \
+    --subscription "$AZ_SUBSCRIPTION_ID" \
+    --query "properties.configuration.ingress.fqdn" -o tsv)
+  echo "✅ Deployed $containerapp_name → https://${fqdn}"
 }
 
-# ---------------------------------------------------
-# Service registry: containerapp-name : acr-repo : port : ingress
-# Naming convention: timesheet-int-<service>-ca
-# ---------------------------------------------------
-SERVICES=(
-  "timesheet-int-profile-service-ca:profile-service:$(get_yaml_value_from_file "$VARS_FILE" "PROFILE_SERVICE_PORT"):external"
-  "timesheet-int-task-service-ca:task-service:$(get_yaml_value_from_file "$VARS_FILE" "TASK_SERVICE_PORT"):external"
-  "timesheet-int-timelog-service-ca:timelog-service:$(get_yaml_value_from_file "$VARS_FILE" "TIMELOG_SERVICE_PORT"):external"
+TAG_RELEASE="latest"
+
+AZ_SUBSCRIPTION_ID="$(get_yaml_value_from_file "$VARS_FILE" "AZ_SUBSCRIPTION_ID")"
+AZ_RESOURCE_GROUP="$(get_yaml_value_from_file "$VARS_FILE" "AZ_RESOURCE_GROUP")"
+AZ_CONTAINERAPP_ENV_NAME="$(get_yaml_value_from_file "$VARS_FILE" "AZ_CONTAINERAPP_ENV_NAME")"
+AZ_ACR_NAME="$(get_yaml_value_from_file "$VARS_FILE" "AZ_ACR_NAME")"
+AZ_ACR_LOGIN_SERVER="$(get_yaml_value_from_file "$VARS_FILE" "AZ_ACR_LOGIN_SERVER")"
+AZ_ACR_PASSWORD="$(get_acr_password "$VARS_FILE")"
+MIN_REPLICAS="$(get_yaml_value_from_file "$VARS_FILE" "AZ_CONTAINERAPP_MIN_REPLICAS")"
+MAX_REPLICAS="$(get_yaml_value_from_file "$VARS_FILE" "AZ_CONTAINERAPP_MAX_REPLICAS")"
+
+PROFILE_APP="$(get_yaml_value_from_file "$VARS_FILE" "PROFILE_CONTAINER_APP_NAME")"
+TASK_APP="$(get_yaml_value_from_file "$VARS_FILE" "TASK_CONTAINER_APP_NAME")"
+TIMELOG_APP="$(get_yaml_value_from_file "$VARS_FILE" "TIMELOG_CONTAINER_APP_NAME")"
+PROFILE_PORT="$(get_yaml_value_from_file "$VARS_FILE" "PROFILE_SERVICE_PORT")"
+TASK_PORT="$(get_yaml_value_from_file "$VARS_FILE" "TASK_SERVICE_PORT")"
+TIMELOG_PORT="$(get_yaml_value_from_file "$VARS_FILE" "TIMELOG_SERVICE_PORT")"
+
+SHARED_ENV_KEYS=(
+  KEY_VAULT_URL
+  JWT_PUBLIC_KEY_SECRET_NAME
+  JWT_KID_SECRET_NAME
+  CORS_ALLOWED_ORIGIN
+  USE_LOCAL_KEY
+  JWT_ISSUER
+  AZURE_STORAGE_CONNECTION_STRING
 )
 
-for entry in "${SERVICES[@]}"; do
-  IFS=":" read -r NAME REPO PORT INGRESS <<< "$entry"
-  if [ -z "$PORT" ]; then
-    echo "❌ Missing port for $NAME"
-    exit 1
-  fi
-  deploy_service "$NAME" "$REPO" "$PORT" "$INGRESS"
-done
+PROFILE_ENV_KEYS=(
+  "${SHARED_ENV_KEYS[@]}"
+  USERS_TABLE_NAME
+  JWT_PRIVATE_KEY_SECRET_NAME
+  JWT_EXPIRY_HOURS
+  ADMIN_EMAILS
+  ALLOWED_EMAIL_DOMAIN
+  AUTH_RATE_LIMIT_PER_MINUTE
+)
+
+TASK_ENV_KEYS=(
+  "${SHARED_ENV_KEYS[@]}"
+  TASKS_TABLE_NAME
+  PROFILE_SERVICE_BASE_URL
+  VALIDATE_ASSIGN_EMAILS_WITH_PROFILE_SERVICE
+  PROFILE_SERVICE_TIMEOUT_SECONDS
+  DEFAULT_ADMIN_LIST_PAGE_SIZE
+)
+
+TIMELOG_ENV_KEYS=(
+  "${SHARED_ENV_KEYS[@]}"
+  TIMESHEET_TABLE_NAME
+  PROFILE_SERVICE_BASE_URL
+  TASK_SERVICE_BASE_URL
+)
+
+if [ -z "$AZ_SUBSCRIPTION_ID" ] || [ -z "$AZ_RESOURCE_GROUP" ] || [ -z "$AZ_CONTAINERAPP_ENV_NAME" ] || \
+   [ -z "$AZ_ACR_NAME" ] || [ -z "$AZ_ACR_LOGIN_SERVER" ] || \
+   [ -z "$MIN_REPLICAS" ] || [ -z "$MAX_REPLICAS" ] || \
+   [ -z "$PROFILE_APP" ] || [ -z "$TASK_APP" ] || [ -z "$TIMELOG_APP" ] || \
+   [ -z "$PROFILE_PORT" ] || [ -z "$TASK_PORT" ] || [ -z "$TIMELOG_PORT" ]; then
+  echo "❌ Missing required shared configuration in $VARS_FILE"
+  exit 1
+fi
+
+deploy_service "$PROFILE_APP" "profile-service" "$PROFILE_PORT" "external" "${PROFILE_ENV_KEYS[@]}"
+deploy_service "$TASK_APP" "task-service" "$TASK_PORT" "external" "${TASK_ENV_KEYS[@]}"
+deploy_service "$TIMELOG_APP" "timelog-service" "$TIMELOG_PORT" "external" "${TIMELOG_ENV_KEYS[@]}"
 
 echo "🎉 All 3 services deployed."
+echo "   Inter-service: PROFILE_SERVICE_BASE_URL=$(get_yaml_value_from_file "$VARS_FILE" "PROFILE_SERVICE_BASE_URL")"
+echo "   Inter-service: TASK_SERVICE_BASE_URL=$(get_yaml_value_from_file "$VARS_FILE" "TASK_SERVICE_BASE_URL")"
+echo "   Public: $(get_yaml_value_from_file "$VARS_FILE" "VITE_PROFILE_SERVICE_BASE_URL")"
+echo "   Public: $(get_yaml_value_from_file "$VARS_FILE" "VITE_TASK_SERVICE_BASE_URL")"
+echo "   Public: $(get_yaml_value_from_file "$VARS_FILE" "VITE_TIMELOG_SERVICE_BASE_URL")"
