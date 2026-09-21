@@ -4,6 +4,9 @@
 .env.*.local
 *.secrets.yml
 secrets.yml
+.env.*
+frontend/.env.example
+
 
 # IDE & Editor
 .vscode/
@@ -88,3 +91,7 @@ azurite_data/
 *.tmp
 *.swp
 .~*
+
+.cursor
+graphify-out/
+
