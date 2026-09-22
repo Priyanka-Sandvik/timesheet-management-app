@@ -45,20 +45,27 @@ get_acr_password() {
     --output tsv
 }
 
-# Build env/secret strings from an explicit allow-list of variables.yml keys.
-# Prints env line, then "---", then secrets line.
+# Load every KEY: value from variables.yml. Key Vault refs become Container App
+# secrets (identityref:system); everything else is a plain env var.
+# AZ_ACR_PASSWORD is only used to pull images — it is not copied into the app.
 build_env_and_secrets() {
   local envs=""
   local secrets=""
   local key value env_key safe_secret_name
 
-  for key in "$@"; do
-    if [[ "$key" == PORT=* ]]; then
-      envs+=" PORT=${key#PORT=}"
+  while IFS=: read -r raw_key raw_value; do
+    key=$(echo "$raw_key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    value=$(echo "$raw_value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+    if [[ -z "$key" ]] || [[ "$key" =~ ^# ]]; then
+      continue
+    fi
+    value=$(echo "$value" | sed 's/^"\(.*\)"$/\1/; s/^'\''\(.*\)'\''$/\1/')
+
+    if [[ "$key" == "AZ_ACR_PASSWORD" || "$key" == "AZ-ACR-PASSWORD" ]]; then
       continue
     fi
 
-    value="$(get_yaml_value_from_file "$VARS_FILE" "$key")"
     if [ -z "$value" ]; then
       continue
     fi
@@ -72,7 +79,7 @@ build_env_and_secrets() {
     else
       envs+=" ${env_key}=${value}"
     fi
-  done
+  done < <(grep -E '^[A-Z0-9_-]+:' "$VARS_FILE")
 
   envs="$(echo "$envs" | xargs)"
   secrets="$(echo "$secrets" | xargs)"
@@ -95,16 +102,16 @@ deploy_service() {
   local source_repo="$2"
   local port="$3"
   local ingress="$4"
-  shift 4
-  local env_keys=("$@")
 
   local image_full="${AZ_ACR_LOGIN_SERVER}/${source_repo}:${TAG_RELEASE}"
   echo "🚀 Deploying $image_full to container app: $containerapp_name"
 
   local tmp_output envs secrets
-  tmp_output=$(build_env_and_secrets "${env_keys[@]}" "PORT=${port}")
+  tmp_output=$(build_env_and_secrets)
   envs=$(echo "$tmp_output" | sed -n '1p')
   secrets=$(echo "$tmp_output" | sed -n '3p')
+  # uvicorn reads PORT; also keep the per-service port from variables.yml.
+  envs="${envs} PORT=${port}"
 
   if app_exists "$containerapp_name"; then
     echo "ℹ️ Updating existing app $containerapp_name"
@@ -197,42 +204,6 @@ PROFILE_PORT="$(get_yaml_value_from_file "$VARS_FILE" "PROFILE_SERVICE_PORT")"
 TASK_PORT="$(get_yaml_value_from_file "$VARS_FILE" "TASK_SERVICE_PORT")"
 TIMELOG_PORT="$(get_yaml_value_from_file "$VARS_FILE" "TIMELOG_SERVICE_PORT")"
 
-SHARED_ENV_KEYS=(
-  KEY_VAULT_URL
-  JWT_PUBLIC_KEY_SECRET_NAME
-  JWT_KID_SECRET_NAME
-  CORS_ALLOWED_ORIGIN
-  USE_LOCAL_KEY
-  JWT_ISSUER
-  AZURE_STORAGE_CONNECTION_STRING
-)
-
-PROFILE_ENV_KEYS=(
-  "${SHARED_ENV_KEYS[@]}"
-  USERS_TABLE_NAME
-  JWT_PRIVATE_KEY_SECRET_NAME
-  JWT_EXPIRY_HOURS
-  ADMIN_EMAILS
-  ALLOWED_EMAIL_DOMAIN
-  AUTH_RATE_LIMIT_PER_MINUTE
-)
-
-TASK_ENV_KEYS=(
-  "${SHARED_ENV_KEYS[@]}"
-  TASKS_TABLE_NAME
-  PROFILE_SERVICE_BASE_URL
-  VALIDATE_ASSIGN_EMAILS_WITH_PROFILE_SERVICE
-  PROFILE_SERVICE_TIMEOUT_SECONDS
-  DEFAULT_ADMIN_LIST_PAGE_SIZE
-)
-
-TIMELOG_ENV_KEYS=(
-  "${SHARED_ENV_KEYS[@]}"
-  TIMESHEET_TABLE_NAME
-  PROFILE_SERVICE_BASE_URL
-  TASK_SERVICE_BASE_URL
-)
-
 if [ -z "$AZ_SUBSCRIPTION_ID" ] || [ -z "$AZ_RESOURCE_GROUP" ] || [ -z "$AZ_CONTAINERAPP_ENV_NAME" ] || \
    [ -z "$AZ_ACR_NAME" ] || [ -z "$AZ_ACR_LOGIN_SERVER" ] || \
    [ -z "$MIN_REPLICAS" ] || [ -z "$MAX_REPLICAS" ] || \
@@ -242,9 +213,9 @@ if [ -z "$AZ_SUBSCRIPTION_ID" ] || [ -z "$AZ_RESOURCE_GROUP" ] || [ -z "$AZ_CONT
   exit 1
 fi
 
-deploy_service "$PROFILE_APP" "profile-service" "$PROFILE_PORT" "external" "${PROFILE_ENV_KEYS[@]}"
-deploy_service "$TASK_APP" "task-service" "$TASK_PORT" "external" "${TASK_ENV_KEYS[@]}"
-deploy_service "$TIMELOG_APP" "timelog-service" "$TIMELOG_PORT" "external" "${TIMELOG_ENV_KEYS[@]}"
+deploy_service "$PROFILE_APP" "profile-service" "$PROFILE_PORT" "external"
+deploy_service "$TASK_APP" "task-service" "$TASK_PORT" "external"
+deploy_service "$TIMELOG_APP" "timelog-service" "$TIMELOG_PORT" "external"
 
 echo "🎉 All 3 services deployed."
 echo "   Inter-service: PROFILE_SERVICE_BASE_URL=$(get_yaml_value_from_file "$VARS_FILE" "PROFILE_SERVICE_BASE_URL")"
