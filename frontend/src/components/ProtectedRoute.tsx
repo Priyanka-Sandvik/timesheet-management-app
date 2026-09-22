@@ -3,9 +3,13 @@ import { useAuth } from "@/auth/AuthContext";
 import { Header } from "./Header";
 
 export function ProtectedRoute() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+  if (isAdmin) {
+    // Admins are fixed config accounts, not employees - they never have a timesheet.
+    return <Navigate to="/admin/task-import" replace />;
   }
   return (
     <div className="app-shell">
