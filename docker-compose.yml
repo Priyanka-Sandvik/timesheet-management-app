@@ -35,7 +35,7 @@ services:
       USE_LOCAL_KEY: "true"
       LOCAL_KEY_DIR: /app/.keys
       JWT_EXPIRY_HOURS: 8
-      ADMIN_EMAILS: ${ADMIN_EMAILS:-admin1@sandvik.com,admin2@sandvik.com}
+      ADMIN_CREDENTIALS: ${ADMIN_CREDENTIALS:-admin1@sandvik.com:Admin@123;admin2@sandvik.com:Admin@456}
       ALLOWED_EMAIL_DOMAIN: ${ALLOWED_EMAIL_DOMAIN:-sandvik.com}
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost:5173}
       AUTH_RATE_LIMIT_PER_MINUTE: 20

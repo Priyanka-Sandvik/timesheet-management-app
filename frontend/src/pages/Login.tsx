@@ -46,9 +46,7 @@ export function Login() {
       // Admin entry point lands on Task Import, not My Time Sheet - UI spec §3.
       navigate("/admin/task-import", { replace: true });
     } catch (err) {
-      if (err instanceof ApiError && err.status === 403) {
-        setFormError("This account does not have admin access");
-      } else if (err instanceof ApiError && err.status === 401) {
+      if (err instanceof ApiError && err.status === 401) {
         setFormError("Invalid email or password.");
       } else {
         console.error(err);
