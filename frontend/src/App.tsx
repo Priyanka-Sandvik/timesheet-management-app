@@ -12,6 +12,7 @@ import { AdminTaskImport } from "@/pages/AdminTaskImport";
 import { AdminTaskManagement } from "@/pages/AdminTaskManagement";
 import { AdminUserManagement } from "@/pages/AdminUserManagement";
 import { AdminMonthlyExport } from "@/pages/AdminMonthlyExport";
+import { AdminTimesheetReview } from "@/pages/AdminTimesheetReview";
 
 function UnauthorizedRedirect() {
   const navigate = useNavigate();
@@ -44,6 +45,7 @@ function AppRoutes() {
             <Route path="task-management" element={<AdminTaskManagement />} />
             <Route path="user-management" element={<AdminUserManagement />} />
             <Route path="monthly-export" element={<AdminMonthlyExport />} />
+            <Route path="timesheet-review" element={<AdminTimesheetReview />} />
           </Route>
         </Route>
 

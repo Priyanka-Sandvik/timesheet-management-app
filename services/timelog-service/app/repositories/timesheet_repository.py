@@ -13,7 +13,7 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.data.tables import UpdateMode
 from azure.data.tables.aio import TableServiceClient as AsyncTableServiceClient
 
-from app.models.entities import TimesheetEntity, make_row_key
+from app.models.entities import STATUS_SUBMITTED, TimesheetEntity, make_row_key
 
 
 class TimesheetRepository:
@@ -34,7 +34,26 @@ class TimesheetRepository:
         return results
 
     async def get_month_entries(self, user_id: str, lower_bound: str, upper_bound: str) -> list[TimesheetEntity]:
-        """Partition-scoped RowKey range query: RowKey >= lower_bound and RowKey < upper_bound.
+        """Partition-scoped RowKey range query: RowKey >= lower_bound and RowKey < upper_bound,
+        restricted to Submitted rows (used by the monthly admin export, which must only
+        report time employees have actually submitted).
+
+        `lower_bound`/`upper_bound` are e.g. "2026-08-01_" and "2026-09-01_" — lexicographic
+        comparison over ISO date prefixes works correctly for month boundaries.
+        """
+        query_filter = (
+            f"PartitionKey eq '{_escape(user_id)}' and RowKey ge '{lower_bound}' and RowKey lt '{upper_bound}'"
+            f" and Status eq '{_escape(STATUS_SUBMITTED)}'"
+        )
+        results: list[TimesheetEntity] = []
+        async for entity in self._table_client.query_entities(query_filter):
+            results.append(TimesheetEntity.from_table_entity(entity))
+        return results
+
+    async def get_month_entries_all_statuses(self, user_id: str, lower_bound: str, upper_bound: str) -> list[TimesheetEntity]:
+        """Partition-scoped RowKey range query: RowKey >= lower_bound and RowKey < upper_bound,
+        returning both Pending and Submitted rows (used by the admin status review table,
+        which must show all weeks regardless of submission state).
 
         `lower_bound`/`upper_bound` are e.g. "2026-08-01_" and "2026-09-01_" — lexicographic
         comparison over ISO date prefixes works correctly for month boundaries.

@@ -6,11 +6,37 @@
   background: var(--color-bg);
 }
 
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .title {
   font-weight: 700;
   font-size: 14px;
   line-height: 1.35;
   margin-bottom: 6px;
+}
+
+.removeBtn {
+  background: none;
+  border: none;
+  color: var(--color-text-faint);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+.removeBtn:hover {
+  color: var(--color-danger);
+}
+
+.removeBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .metaRow {

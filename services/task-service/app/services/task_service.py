@@ -12,6 +12,7 @@ from py_common.core.logging import log_event
 
 from app.config import Settings
 from app.models.schemas import (
+    UNASSIGNED_PARTITION,
     AssignResponse,
     ImportParseResult,
     ImportResult,
@@ -50,6 +51,92 @@ class TaskService:
             ]
 
         return tasks
+
+    # ------------------------------------------------------------------ #
+    # GET /api/v1/tasks/catalog
+    # ------------------------------------------------------------------ #
+    async def list_available_tasks(self, *, email: str, search: str | None) -> list[TaskOut]:
+        """Open task templates the caller is not already assigned to - the self-assign
+        picker's candidate list. Unlike `/admin/tasks`, this never exposes OnHold/Closed
+        templates or other employees' assignment rows.
+        """
+        templates = await self._repo.list_by_partition(UNASSIGNED_PARTITION)
+        assigned = await self._repo.list_by_partition(email)
+        assigned_codes = {e["RowKey"] for e in assigned}
+
+        tasks = [
+            entity_to_task_out(e)
+            for e in templates
+            if e.get("Status", "Open") == "Open" and e["RowKey"] not in assigned_codes
+        ]
+
+        if search:
+            needle = search.lower()
+            tasks = [
+                t
+                for t in tasks
+                if needle in t.taskName.lower()
+                or needle in t.taskCode.lower()
+                or (t.description is not None and needle in t.description.lower())
+            ]
+
+        return tasks
+
+    # ------------------------------------------------------------------ #
+    # POST /api/v1/tasks/{taskCode}/assign-self
+    # ------------------------------------------------------------------ #
+    async def self_assign_task(self, *, task_code: str, email: str) -> TaskOut:
+        template = await self._repo.get_template(task_code)
+        if template is None:
+            raise AppError(
+                status_code=404,
+                code="NOT_FOUND",
+                message=f"Task '{task_code}' does not exist",
+            )
+        if template.get("Status", "Open") != "Open":
+            raise AppError(
+                status_code=409,
+                code="CONFLICT",
+                message=f"Task '{task_code}' is not open for assignment",
+            )
+
+        existing = await self._repo.get_assignment(email, task_code)
+        if existing is not None:
+            raise AppError(
+                status_code=409,
+                code="CONFLICT",
+                message=f"You are already assigned to task '{task_code}'",
+            )
+
+        template_fields = {
+            "TaskName": template.get("TaskName", ""),
+            "Description": template.get("Description"),
+            "Sponsor": template.get("Sponsor"),
+            "CostCentre": template.get("CostCentre"),
+            "CoEResponsible": template.get("CoEResponsible"),
+            "Status": template.get("Status", "Open"),
+        }
+        entity = await self._repo.upsert_assignment(email, task_code, template_fields)
+        log_event(logger, "task_self_assign", user=email, task_code=task_code)
+        return entity_to_task_out(entity)
+
+    # ------------------------------------------------------------------ #
+    # DELETE /api/v1/tasks/{taskCode}/assign-self
+    # ------------------------------------------------------------------ #
+    async def self_unassign_task(self, *, task_code: str, email: str) -> None:
+        """Removes the caller's own assignment row. Mirrors the admin unassign route:
+        no cascade into previously logged timesheet entries for this task (see
+        test_delete_template_does_not_cascade_to_assignments for the equivalent template
+        case) - those entries remain in Timelog Service untouched.
+        """
+        deleted = await self._repo.delete_assignment(email, task_code)
+        if not deleted:
+            raise AppError(
+                status_code=404,
+                code="NOT_FOUND",
+                message=f"You are not assigned to task '{task_code}'",
+            )
+        log_event(logger, "task_self_unassign", user=email, task_code=task_code)
 
     # ------------------------------------------------------------------ #
     # POST /admin/tasks/import

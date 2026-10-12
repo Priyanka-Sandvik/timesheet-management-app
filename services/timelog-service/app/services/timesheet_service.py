@@ -1,5 +1,5 @@
 """Business logic for the employee-facing timesheet endpoints (grid, entries, generate,
-copy-previous, submit). Week math is always Mon-Sun.
+submit). Week math is always Mon-Sun.
 """
 from __future__ import annotations
 
@@ -8,8 +8,9 @@ from datetime import date, timedelta
 from py_common.core.errors import AppError
 
 from app.models.entities import STATUS_PENDING, STATUS_SUBMITTED, TimesheetEntity, utcnow
-from app.models.schemas import EntryIn, EntryOut, TimesheetGridResponse
+from app.models.schemas import EmployeeWeekStatus, EntryIn, EntryOut, TimesheetGridResponse
 from app.repositories.timesheet_repository import TimesheetRepository
+from app.services.export_service import month_bounds
 from app.services.task_client import TaskServiceClient
 
 
@@ -28,6 +29,17 @@ def normalize_week_start(week_start: date) -> date:
     already pass a Monday, but this guards against off-by-one query params).
     """
     return week_start - timedelta(days=week_start.weekday())
+
+
+def is_future_week(week_start: date, today: date) -> bool:
+    """True if `week_start` (a Monday) falls in a calendar month after `today`'s.
+
+    Employees may fill/submit any week up through the current month's last week, even
+    though that week is often "broken" — its Monday is in the current month but its Sunday
+    spills a few days into the next one. They may not fill a week that starts in a future
+    month (i.e. the first full week of next month onward) until that month arrives.
+    """
+    return (week_start.year, week_start.month) > (today.year, today.month)
 
 
 STANDARD_WORKDAY_HOURS = 9.0
@@ -190,53 +202,17 @@ class TimesheetService:
         await self._repository.upsert_entries(to_create)
         return len(to_create)
 
-    async def copy_previous_week(self, *, user_id: str, week_start: date) -> int:
-        week_start = normalize_week_start(week_start)
-        prev_week_start = week_start - timedelta(days=7)
-        prev_week_end = week_end(prev_week_start)
-
-        prev_entities = await self._repository.get_week_entries(user_id, prev_week_start, prev_week_end)
-        distinct_tasks: dict[str, tuple[str | None, str | None]] = {}
-        for e in prev_entities:
-            distinct_tasks.setdefault(e.task_code, (e.task_name, e.project_name))
-
-        if not distinct_tasks:
-            return 0
-
-        cur_week_end = week_end(week_start)
-        cur_entities = await self._repository.get_week_entries(user_id, week_start, cur_week_end)
-        existing_keys = {(e.entry_date, e.task_code) for e in cur_entities}
-
-        now = utcnow()
-        to_create: list[TimesheetEntity] = []
-        for d in week_dates(week_start):
-            for task_code, (task_name, project_name) in distinct_tasks.items():
-                key = (d, task_code)
-                if key in existing_keys:
-                    continue
-                to_create.append(
-                    TimesheetEntity(
-                        user_id=user_id,
-                        entry_date=d,
-                        task_code=task_code,
-                        task_name=task_name,
-                        project_name=project_name,
-                        week_start_date=week_start,
-                        hours_logged=0.0,
-                        notes=None,
-                        status=STATUS_PENDING,
-                        created_at=now,
-                        updated_at=now,
-                    )
-                )
-                existing_keys.add(key)
-
-        await self._repository.upsert_entries(to_create)
-        return len(to_create)
-
     async def submit_week(self, *, user_id: str, week_start: date) -> str:
         week_start = normalize_week_start(week_start)
         w_end = week_end(week_start)
+
+        if is_future_week(week_start, utcnow().date()):
+            raise AppError(
+                status_code=409,
+                code="FUTURE_PERIOD",
+                message="This week has not started yet and cannot be submitted",
+            )
+
         entities = await self._repository.get_week_entries(user_id, week_start, w_end)
         if not entities:
             raise AppError(
@@ -251,3 +227,42 @@ class TimesheetService:
             e.updated_at = now
         await self._repository.upsert_entries(entities)
         return STATUS_SUBMITTED
+
+    async def get_period_statuses(self, employee_emails: list[str], month: str) -> list[EmployeeWeekStatus]:
+        _, _, lower_bound, upper_bound = month_bounds(month)
+
+        results: list[EmployeeWeekStatus] = []
+        for email in employee_emails:
+            entities = await self._repository.get_month_entries_all_statuses(email, lower_bound, upper_bound)
+            by_week: dict[date, list[TimesheetEntity]] = {}
+            for e in entities:
+                by_week.setdefault(e.week_start_date, []).append(e)
+            for w_start, week_entities in sorted(by_week.items()):
+                status = (
+                    STATUS_SUBMITTED
+                    if any(e.status == STATUS_SUBMITTED for e in week_entities)
+                    else STATUS_PENDING
+                )
+                results.append(
+                    EmployeeWeekStatus(userId=email, weekStart=w_start, weekEnd=week_end(w_start), status=status)
+                )
+        return results
+
+    async def set_week_status(self, *, user_id: str, week_start: date, new_status: str) -> str:
+        week_start = normalize_week_start(week_start)
+        w_end = week_end(week_start)
+
+        entities = await self._repository.get_week_entries(user_id, week_start, w_end)
+        if not entities:
+            raise AppError(
+                status_code=404,
+                code="NOT_FOUND",
+                message="No timesheet entries found for this week",
+            )
+
+        now = utcnow()
+        for e in entities:
+            e.status = new_status
+            e.updated_at = now
+        await self._repository.upsert_entries(entities)
+        return new_status

@@ -17,6 +17,27 @@ export const taskApi = {
     });
   },
 
+  /** Open task templates the caller can self-assign to (excludes ones already assigned). */
+  listCatalog(params?: { search?: string }) {
+    return apiClient.request<TasksListResponse>("task", "/api/v1/tasks/catalog", {
+      query: { search: params?.search },
+    });
+  },
+
+  /** Employee self-assignment to an existing Open task - never creates new tasks. */
+  assignSelf(taskCode: string) {
+    return apiClient.request<Task>("task", `/api/v1/tasks/${encodeURIComponent(taskCode)}/assign-self`, {
+      method: "POST",
+    });
+  },
+
+  /** Employee self-removal from a task they're assigned to. */
+  unassignSelf(taskCode: string) {
+    return apiClient.request<void>("task", `/api/v1/tasks/${encodeURIComponent(taskCode)}/assign-self`, {
+      method: "DELETE",
+    });
+  },
+
   // --- Admin-only surfaces (Task Import / Task Management screens only) ---
 
   adminImport(file: File) {

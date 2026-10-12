@@ -61,9 +61,35 @@ class GenerateResponse(BaseModel):
     rowsCreated: int
 
 
-class CopyPreviousResponse(BaseModel):
-    rowsCopied: int
-
-
 class SubmitResponse(BaseModel):
+    status: str
+
+
+class EmployeeWeekStatus(BaseModel):
+    userId: str
+    weekStart: date
+    weekEnd: date
+    status: str
+
+
+class AdminPeriodStatusResponse(BaseModel):
+    period: str
+    employees: list[EmployeeWeekStatus]
+
+
+class AdminSetStatusRequest(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def _validate_status(cls, v: str) -> str:
+        from app.models.entities import STATUS_PENDING, STATUS_SUBMITTED
+        if v not in (STATUS_PENDING, STATUS_SUBMITTED):
+            raise ValueError("status must be 'Pending' or 'Submitted'")
+        return v
+
+
+class AdminSetStatusResponse(BaseModel):
+    userId: str
+    weekStart: date
     status: str
