@@ -2,8 +2,15 @@
 .env
 .env.local
 .env.*.local
+.env.*
 *.secrets.yml
 secrets.yml
+
+# Cursor plans
+.cursor/plans/
+
+# Graphify knowledge graph
+graphify-out/
 
 # IDE & Editor
 .vscode/
