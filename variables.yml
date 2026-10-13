@@ -5,7 +5,10 @@ JWT_KID_SECRET_NAME: jwt-kid
 
 USERS_TABLE_NAME: Users
 JWT_EXPIRY_HOURS: 8
-ADMIN_EMAILS: admin1@sandvik.com,admin2@sandvik.com
+# TODO: create an "ADMIN-CREDENTIALS" secret in the Key Vault below before deploying, with
+# value "email1:password1;email2:password2" (see services/profile-service/.env.example
+# for the format), then uncomment the line below.
+ADMIN_CREDENTIALS: keyvaultref:https://timesheet-key-vault.vault.azure.net/secrets/ADMIN-CREDENTIALS/34bbca5695434e36b3aa7ddf3984504d
 ALLOWED_EMAIL_DOMAIN: sandvik.com
 CORS_ALLOWED_ORIGIN: https://red-moss-0342e4b03.6.azurestaticapps.net
 AUTH_RATE_LIMIT_PER_MINUTE: 20

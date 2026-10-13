@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from app.models.entities import TimesheetEntity, make_row_key
+from app.models.entities import STATUS_SUBMITTED, TimesheetEntity, make_row_key
 from app.services.task_client import TaskAssignment
 
 
@@ -23,6 +23,13 @@ class FakeTimesheetRepository:
         ]
 
     async def get_month_entries(self, user_id: str, lower_bound: str, upper_bound: str) -> list[TimesheetEntity]:
+        return [
+            e
+            for (pk, rk), e in self._store.items()
+            if pk == user_id and lower_bound <= rk < upper_bound and e.status == STATUS_SUBMITTED
+        ]
+
+    async def get_month_entries_all_statuses(self, user_id: str, lower_bound: str, upper_bound: str) -> list[TimesheetEntity]:
         return [
             e
             for (pk, rk), e in self._store.items()

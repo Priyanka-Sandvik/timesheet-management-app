@@ -29,6 +29,23 @@
   border-bottom-color: var(--color-accent);
 }
 
+.addProjectBtn {
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-accent);
+  background: var(--color-bg);
+  color: var(--color-accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.addProjectBtn:hover {
+  background: var(--color-accent);
+  color: #fff;
+}
+
 .searchRow {
   position: relative;
   margin-bottom: 14px;

@@ -5,7 +5,8 @@ Exercises the full chain across all three services, running against `docker-comp
 (default base URLs below assume the host-mapped ports 8001/8002/8003):
 
   1. Register an employee, log in.
-  2. Register an admin-eligible user, log in as admin (email must be in ADMIN_EMAILS).
+  2. Log in as admin (fixed credentials, must be in Profile Service's ADMIN_CREDENTIALS -
+     never registered as a user).
   3. Admin imports a task (in-memory CSV), assigns it to the employee.
   4. Employee generates the current week's time cards, logs an hour entry, submits.
   5. Admin exports the current month and confirms a non-empty .xlsx comes back.
@@ -35,10 +36,10 @@ PROFILE_BASE = "http://localhost:8001"
 TASK_BASE = "http://localhost:8002"
 TIMELOG_BASE = "http://localhost:8003"
 
-# Must match an entry in Profile Service's ADMIN_EMAILS env var (see docker-compose.yml /
-# .env). Default docker-compose.yml value includes admin1@sandvik.com.
+# Must match an entry in Profile Service's ADMIN_CREDENTIALS env var (see docker-compose.yml
+# / .env). Default docker-compose.yml value includes admin1@sandvik.com / "Admin@123".
 ADMIN_EMAIL = "admin1@sandvik.com"
-ADMIN_PASSWORD = "abcdefgh"
+ADMIN_PASSWORD = "Admin@123"  # plaintext, acceptable since stored in Key Vault
 
 PASSWORD = "abcdefgh"
 
@@ -95,18 +96,14 @@ def main() -> None:
     employee_token = r.json()["access_token"]
     _ok("logged in as employee")
 
-    # --- 2. Register (if needed) + login as admin ---
-    # Registration may 409 if this admin account already exists from a prior run — that's fine.
-    requests.post(
-        f"{PROFILE_BASE}/auth/register",
-        json={"email": ADMIN_EMAIL, "fullName": "Smoke Test Admin", "password": ADMIN_PASSWORD},
-    )
+    # --- 2. Log in as admin (fixed credentials, no registration) ---
     r = requests.post(
         f"{PROFILE_BASE}/auth/login-as-admin", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}
     )
     if r.status_code != 200:
         _fail(
-            "login-as-admin (is ADMIN_EMAIL in the Profile Service's ADMIN_EMAILS env var?)",
+            "login-as-admin (is ADMIN_EMAIL:ADMIN_PASSWORD in the Profile Service's "
+            "ADMIN_CREDENTIALS env var?)",
             r,
         )
     admin_token = r.json()["access_token"]

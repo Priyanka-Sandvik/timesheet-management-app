@@ -3,7 +3,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { taskApi } from "@/api/taskApi";
 import { timelogApi } from "@/api/timelogApi";
 import type { Task, TimesheetResponse } from "@/types";
-import { getWeekDays, getWeekStart, toIsoDate } from "@/utils/date";
+import { getWeekDays, getWeekStart, isFutureWeek, toIsoDate } from "@/utils/date";
 import { WeekNavigator } from "@/components/WeekNavigator";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TaskSidebarPanel } from "@/components/TaskSidebarPanel";
@@ -89,19 +89,6 @@ export function MyTimeSheet() {
     }
   }
 
-  async function handleCopyPrevious() {
-    setBusy(true);
-    try {
-      await timelogApi.copyPrevious(weekStartIso);
-      await loadTimesheet();
-    } catch (err) {
-      console.error(err);
-      showToast("Failed to copy from previous time sheet.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function handleHourChange(taskCode: string, entryDate: string, hours: number) {
     try {
       await timelogApi.bulkUpsertEntries({
@@ -145,10 +132,15 @@ export function MyTimeSheet() {
     }
   }
 
-  // Rows exist as soon as the week is generated/copied (initially at 0 hours each) — this
-  // must not require any hours to already be entered, or the grid never leaves the empty
-  // state after "Generate Time Cards".
+  // Rows exist as soon as the week is generated (initially at 0 hours each) — this must
+  // not require any hours to already be entered, or the grid never leaves the empty state
+  // after "Generate Time Cards".
   const hasLoggedCards = (timesheet?.entries.length ?? 0) > 0;
+
+  // Employees can't submit a week that starts in a future month — the current month's
+  // broken last week (Monday this month, Sunday spilling into next) is still fine. Admins
+  // are exempt, same as the read-only lock on submitted weeks.
+  const isFuturePeriod = !isAdmin && isFutureWeek(weekStart);
 
   return (
     <div>
@@ -168,14 +160,15 @@ export function MyTimeSheet() {
         <button
           className={styles.submitBtn}
           onClick={handleSubmit}
-          disabled={submitting || readOnly || !hasLoggedCards}
+          disabled={submitting || readOnly || !hasLoggedCards || isFuturePeriod}
+          title={isFuturePeriod ? "This week hasn't started yet and cannot be submitted." : undefined}
         >
           {submitting ? "Submitting..." : "Submit"}
         </button>
       </div>
 
       <div className={styles.body}>
-        <TaskSidebarPanel tasks={tasks} />
+        <TaskSidebarPanel tasks={tasks} onProjectAdded={loadTasks} />
 
         <div className={styles.main}>
           {!loading && timesheet && (
@@ -199,11 +192,7 @@ export function MyTimeSheet() {
                   onRemoveTask={handleRemoveTask}
                 />
               ) : (
-                <EmptyStateActions
-                  onGenerate={handleGenerate}
-                  onCopyPrevious={handleCopyPrevious}
-                  busy={busy}
-                />
+                <EmptyStateActions onGenerate={handleGenerate} busy={busy} />
               )}
             </>
           )}

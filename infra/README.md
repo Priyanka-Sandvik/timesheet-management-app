@@ -31,11 +31,16 @@ added beyond the architecture doc's exact §11 list (documented inline in each
 Each service's `CORS_ALLOWED_ORIGIN` must be set to the deployed Static Web App's origin.
 There is no gateway to centralize this — it is enforced independently per service.
 
-## Admin allow-list
+## Admin accounts
 
-`ADMIN_EMAILS` (Profile Service only) is an operational/ops-runbook concern, not a
-code-deploy concern: adding/removing an admin = update the Container App's environment
-variable + restart Profile Service (zero-downtime rolling restart on Container Apps).
+`ADMIN_CREDENTIALS` (Profile Service only, stored as a Key Vault secret referenced via
+`keyvaultref:` in `variables.yml`) is an operational/ops-runbook concern, not a code-deploy
+concern: adding/removing/rotating an admin = update the Key Vault secret (format:
+`email1:password1;email2:password2`, plaintext passwords are acceptable since stored in
+Key Vault with access control and audit logging) + restart Profile Service (zero-downtime
+rolling restart on Container Apps). Admin accounts are never rows in the Users table and
+never registered via `/auth/register` — they exist only in this secret and authenticate
+only via `/auth/login-as-admin`.
 
 ## Scaling notes
 

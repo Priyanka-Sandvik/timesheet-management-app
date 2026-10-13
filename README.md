@@ -30,8 +30,8 @@ timesheet-app/
 a service outside its container).
 
 1. Copy each `.env.example` to `.env` in every `services/*/` folder (defaults work as-is for
-   local dev against Azurite; only `ADMIN_EMAILS` is worth editing if you want a specific
-   admin login).
+   local dev against Azurite; only `ADMIN_CREDENTIALS` is worth editing if you want specific
+   admin login credentials).
 2. From the repo root:
 
    ```bash
@@ -63,10 +63,11 @@ a service outside its container).
    npm run dev
    ```
 
-   Open the printed local URL (typically http://localhost:5173). Register an account,
-   or use "Login as Admin" with an email listed in Profile Service's `ADMIN_EMAILS`
-   (default in `docker-compose.yml`: `admin1@sandvik.com` / any password you registered
-   it with) to land on the Admin Console's Task Import screen.
+   Open the printed local URL (typically http://localhost:5173). Register an account to
+   use the employee timesheet pages, or use "Login as Admin" with one of the fixed
+   credentials in Profile Service's `ADMIN_CREDENTIALS` (default in `docker-compose.yml`:
+   `admin1@sandvik.com` / `Admin@123`) to land on the Admin Console's Task Import screen —
+   admin accounts are never registered, they only exist in `ADMIN_CREDENTIALS`.
 
 ---
 

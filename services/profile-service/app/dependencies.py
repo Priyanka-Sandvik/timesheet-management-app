@@ -61,14 +61,14 @@ def get_auth_service() -> AuthService:
         repository=get_user_repository(),
         jwt_issuer=get_jwt_issuer(),
         allowed_email_domain=settings.ALLOWED_EMAIL_DOMAIN,
-        admin_emails=settings.admin_emails_set,
+        admin_credentials=settings.admin_credentials_map,
     )
 
 
 @lru_cache
 def get_user_service() -> UserService:
     settings = get_settings()
-    return UserService(repository=get_user_repository(), admin_emails=settings.admin_emails_set)
+    return UserService(repository=get_user_repository(), admin_emails=set(settings.admin_credentials_map.keys()))
 
 
 @lru_cache

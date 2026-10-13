@@ -14,7 +14,7 @@ function getInitials(name: string | null, email: string | undefined): string {
 }
 
 export function Header() {
-  const { isAdmin, fullName, claims, logout } = useAuth();
+  const { fullName, claims, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -48,20 +48,6 @@ export function Header() {
         </button>
         {menuOpen && (
           <div className={styles.menu}>
-            <button className={styles.menuItem} onClick={() => { setMenuOpen(false); navigate("/my-timesheet"); }}>
-              My Profile
-            </button>
-            {isAdmin && (
-              <button
-                className={styles.menuItem}
-                onClick={() => {
-                  setMenuOpen(false);
-                  navigate("/admin/task-import");
-                }}
-              >
-                Switch to Admin Console
-              </button>
-            )}
             <button className={styles.menuItem} onClick={handleLogout}>
               Logout
             </button>

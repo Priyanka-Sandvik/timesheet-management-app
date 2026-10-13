@@ -27,7 +27,12 @@ class Settings(BaseSettings):
     LOCAL_KEY_DIR: str = "./.keys"
 
     # --- Auth / business rules ---
-    ADMIN_EMAILS: str = ""
+    # Fixed admin accounts: semicolon-separated "email:password" pairs (plaintext passwords
+    # are acceptable here because these credentials are stored in Key Vault with access
+    # control and audit logging, not in git/cleartext config). Admins are NOT rows in the
+    # Users table and never go through /auth/register - they authenticate only via
+    # /auth/login-as-admin against this list.
+    ADMIN_CREDENTIALS: str = ""
     ALLOWED_EMAIL_DOMAIN: str = "sandvik.com"
 
     # --- CORS ---
@@ -43,9 +48,20 @@ class Settings(BaseSettings):
     JWT_ISSUER: str = "profile-service"
 
     @property
-    def admin_emails_set(self) -> set[str]:
-        """Case-insensitive set of admin emails parsed from the comma-separated env var."""
-        return {e.strip().lower() for e in self.ADMIN_EMAILS.split(",") if e.strip()}
+    def admin_credentials_map(self) -> dict[str, str]:
+        """Case-insensitive {email: plaintext-password} map parsed from ADMIN_CREDENTIALS.
+
+        Format: "email1:password1;email2:password2". Pairs are semicolon-separated.
+        """
+        result: dict[str, str] = {}
+        for pair in self.ADMIN_CREDENTIALS.split(";"):
+            pair = pair.strip()
+            if not pair:
+                continue
+            email, _, password = pair.partition(":")
+            if email and password:
+                result[email.strip().lower()] = password
+        return result
 
 
 @lru_cache

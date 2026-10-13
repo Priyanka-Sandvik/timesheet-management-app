@@ -14,8 +14,9 @@ class UserEntity(BaseModel):
     PartitionKey = Email, RowKey = "PROFILE".
     Fields: FullName, PasswordHash (Argon2id), PasswordAlgo, IsActive, CreatedAt, UpdatedAt.
 
-    NOTE: there is intentionally no Role/isAdmin column — admin status is never stored,
-    it is computed at login time against ADMIN_EMAILS and embedded only in the issued JWT.
+    NOTE: there is intentionally no Role/isAdmin column, and admin accounts are never rows
+    in this table at all — admin identity/password lives only in the fixed ADMIN_CREDENTIALS
+    config, checked exclusively by /auth/login-as-admin, and embedded only in the issued JWT.
     """
 
     email: str

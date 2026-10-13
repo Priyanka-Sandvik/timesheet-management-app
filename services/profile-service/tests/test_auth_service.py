@@ -9,6 +9,8 @@ from app.models.schemas import RegisterRequest
 from app.services.auth_service import AuthService
 from tests.fakes import FakeUserRepository
 
+ADMIN_PASSWORD = "Admin@123"
+
 
 @pytest.fixture
 def jwt_issuer():
@@ -25,7 +27,10 @@ def auth_service(jwt_issuer):
         repository=FakeUserRepository(),
         jwt_issuer=jwt_issuer,
         allowed_email_domain="sandvik.com",
-        admin_emails={"admin1@sandvik.com", "admin2@sandvik.com"},
+        admin_credentials={
+            "admin1@sandvik.com": ADMIN_PASSWORD,
+            "admin2@sandvik.com": "Admin@456",
+        },
     )
 
 
@@ -93,14 +98,11 @@ def test_login_deactivated_user_returns_401(auth_service):
     assert exc_info.value.status_code == 401
 
 
-def test_login_embeds_is_admin_true_for_admin_email(auth_service):
-    _register(auth_service, email="admin1@sandvik.com", full_name="Admin One")
-    token, _ = auth_service.login("admin1@sandvik.com", "P@ssw0rd123")
-    import jwt as pyjwt
-
-    public_key_pem = auth_service._jwt_issuer._key_source.get_public_key_pem()
-    claims = pyjwt.decode(token, public_key_pem, algorithms=["RS256"], issuer="profile-service")
-    assert claims["isAdmin"] is True
+def test_register_rejects_reserved_admin_email(auth_service):
+    with pytest.raises(AppError) as exc_info:
+        _register(auth_service, email="admin1@sandvik.com", full_name="Someone")
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.code == "CONFLICT"
 
 
 def test_login_embeds_is_admin_false_for_regular_email(auth_service):
@@ -114,24 +116,34 @@ def test_login_embeds_is_admin_false_for_regular_email(auth_service):
 
 
 def test_login_as_admin_success(auth_service):
-    _register(auth_service, email="admin1@sandvik.com", full_name="Admin One")
-    token, _ = auth_service.login_as_admin("admin1@sandvik.com", "P@ssw0rd123")
+    token, _ = auth_service.login_as_admin("admin1@sandvik.com", ADMIN_PASSWORD)
+    assert isinstance(token, str)
+    import jwt as pyjwt
+
+    public_key_pem = auth_service._jwt_issuer._key_source.get_public_key_pem()
+    claims = pyjwt.decode(token, public_key_pem, algorithms=["RS256"], issuer="profile-service")
+    assert claims["isAdmin"] is True
+
+
+def test_login_as_admin_does_not_require_registration(auth_service):
+    # Admins are fixed config entries, never Users-table rows - no _register() call here.
+    token, _ = auth_service.login_as_admin("admin2@sandvik.com", "Admin@456")
     assert isinstance(token, str)
 
 
-def test_login_as_admin_bad_password_returns_401_not_403(auth_service):
-    _register(auth_service, email="admin1@sandvik.com", full_name="Admin One")
+def test_login_as_admin_bad_password_returns_401(auth_service):
     with pytest.raises(AppError) as exc_info:
         auth_service.login_as_admin("admin1@sandvik.com", "wrong-password")
     assert exc_info.value.status_code == 401
+    assert exc_info.value.code == "UNAUTHORIZED"
 
 
-def test_login_as_admin_non_admin_returns_403_after_password_ok(auth_service):
+def test_login_as_admin_non_admin_returns_401(auth_service):
     _register(auth_service)  # employee1@sandvik.com, not an admin
     with pytest.raises(AppError) as exc_info:
         auth_service.login_as_admin("employee1@sandvik.com", "P@ssw0rd123")
-    assert exc_info.value.status_code == 403
-    assert exc_info.value.code == "FORBIDDEN"
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.code == "UNAUTHORIZED"
 
 
 def test_is_admin_case_insensitive(auth_service):

@@ -6,6 +6,7 @@ const TABS = [
   { to: "/admin/task-management", label: "Task Management" },
   { to: "/admin/user-management", label: "User Management" },
   { to: "/admin/monthly-export", label: "Monthly Export" },
+  { to: "/admin/timesheet-review", label: "Timesheet Review" },
 ];
 
 export function AdminConsoleLayout() {
