@@ -11,7 +11,7 @@ from py_common.core.table_client import ensure_table_exists_async, get_async_tab
 from app.config import get_settings
 from app.core.logging import configure_logging
 from app.repositories.timesheet_repository import TimesheetRepository
-from app.routers import admin_export, timesheet
+from app.routers import admin_export, admin_timesheet_status, timesheet
 from app.services.profile_client import ProfileServiceClient
 from app.services.task_client import TaskServiceClient
 from app.services.timesheet_service import TimesheetService
@@ -57,6 +57,7 @@ app.add_middleware(
 
 app.include_router(timesheet.router)
 app.include_router(admin_export.router)
+app.include_router(admin_timesheet_status.router)
 
 
 @app.get("/health")

@@ -1,4 +1,4 @@
-"""Employee-facing timesheet routes: grid, bulk entries, generate, copy-previous, submit."""
+"""Employee-facing timesheet routes: grid, bulk entries, generate, submit."""
 from __future__ import annotations
 
 from datetime import date
@@ -13,7 +13,6 @@ from app.core.jwt import build_jwt_verifier_dependencies
 from app.models.schemas import (
     BulkUpsertRequest,
     BulkUpsertResponse,
-    CopyPreviousResponse,
     GenerateResponse,
     SubmitResponse,
     TimesheetGridResponse,
@@ -89,16 +88,6 @@ async def generate_week(
 ):
     rows_created = await service.generate_week(user_id=user.email, week_start=weekStart, bearer_token=bearer_token)
     return GenerateResponse(rowsCreated=rows_created)
-
-
-@router.post("/copy-previous", response_model=CopyPreviousResponse)
-async def copy_previous(
-    weekStart: date,
-    user: AuthenticatedUser = Depends(require_user),
-    service: TimesheetService = Depends(get_timesheet_service),
-):
-    rows_copied = await service.copy_previous_week(user_id=user.email, week_start=weekStart)
-    return CopyPreviousResponse(rowsCopied=rows_copied)
 
 
 @router.post("/submit", response_model=SubmitResponse)

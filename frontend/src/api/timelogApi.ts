@@ -1,11 +1,13 @@
 import { apiClient } from "./client";
 import type {
+  AdminPeriodStatusResponse,
+  AdminSetStatusResponse,
   BulkUpsertRequest,
   BulkUpsertResponse,
-  CopyPreviousResponse,
   GenerateResponse,
   SubmitResponse,
   TimesheetResponse,
+  TimesheetStatus,
 } from "@/types";
 
 export const timelogApi = {
@@ -29,13 +31,6 @@ export const timelogApi = {
     });
   },
 
-  copyPrevious(weekStart: string) {
-    return apiClient.request<CopyPreviousResponse>("timelog", "/api/v1/timesheet/copy-previous", {
-      method: "POST",
-      query: { weekStart },
-    });
-  },
-
   submit(weekStart: string) {
     return apiClient.request<SubmitResponse>("timelog", "/api/v1/timesheet/submit", {
       method: "POST",
@@ -47,5 +42,23 @@ export const timelogApi = {
     return apiClient.requestBlob("timelog", "/admin/timesheet/export/monthly", {
       query: { month },
     });
+  },
+
+  getAdminPeriodStatuses(month?: string) {
+    return apiClient.request<AdminPeriodStatusResponse>("timelog", "/admin/timesheet/status", {
+      query: { month },
+    });
+  },
+
+  setAdminWeekStatus(userId: string, weekStart: string, status: TimesheetStatus) {
+    return apiClient.request<AdminSetStatusResponse>(
+      "timelog",
+      `/admin/timesheet/status/${encodeURIComponent(userId)}`,
+      {
+        method: "PUT",
+        query: { weekStart },
+        body: { status },
+      },
+    );
   },
 };

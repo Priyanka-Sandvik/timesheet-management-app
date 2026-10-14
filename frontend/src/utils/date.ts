@@ -56,6 +56,21 @@ export function formatDayHeader(date: Date): string {
   return `${DAY_ABBR[date.getDay()]} ${date.getDate()}`;
 }
 
+/**
+ * True if `weekStart` (a Monday) falls in a calendar month after today's. Mirrors
+ * `is_future_week()` in the Timelog Service: employees may fill/submit any week through
+ * the current month's last week, even though that week is often "broken" — its Monday is
+ * in the current month but its Sunday spills a few days into the next one. They may not
+ * fill a week that starts in a future month (the first full week of next month onward)
+ * until that month arrives.
+ */
+export function isFutureWeek(weekStart: Date): boolean {
+  const today = new Date();
+  const weekStartMonthIndex = weekStart.getFullYear() * 12 + weekStart.getMonth();
+  const todayMonthIndex = today.getFullYear() * 12 + today.getMonth();
+  return weekStartMonthIndex > todayMonthIndex;
+}
+
 export function getPreviousMonthValue(): string {
   const now = new Date();
   const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);

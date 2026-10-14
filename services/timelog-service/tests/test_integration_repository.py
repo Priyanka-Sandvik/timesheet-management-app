@@ -87,11 +87,11 @@ async def test_upsert_and_get_week_entries_round_trip(repository) -> None:
 
 
 @pytest.mark.asyncio
-async def test_month_range_query_is_partition_scoped(repository) -> None:
+async def test_month_range_query_is_partition_scoped_and_submitted_only(repository) -> None:
     from app.models.entities import TimesheetEntity
 
     now = datetime.now(timezone.utc)
-    in_month = TimesheetEntity(
+    in_month_submitted = TimesheetEntity(
         user_id="integration-test-2@sandvik.com",
         entry_date=date(2026, 8, 15),
         task_code="TASK-A",
@@ -99,6 +99,19 @@ async def test_month_range_query_is_partition_scoped(repository) -> None:
         project_name="P",
         week_start_date=date(2026, 8, 10),
         hours_logged=2.0,
+        notes=None,
+        status="Submitted",
+        created_at=now,
+        updated_at=now,
+    )
+    in_month_pending = TimesheetEntity(
+        user_id="integration-test-2@sandvik.com",
+        entry_date=date(2026, 8, 16),
+        task_code="TASK-B",
+        task_name="B",
+        project_name="P",
+        week_start_date=date(2026, 8, 10),
+        hours_logged=1.0,
         notes=None,
         status="Pending",
         created_at=now,
@@ -113,14 +126,16 @@ async def test_month_range_query_is_partition_scoped(repository) -> None:
         week_start_date=date(2026, 8, 31),
         hours_logged=5.0,
         notes=None,
-        status="Pending",
+        status="Submitted",
         created_at=now,
         updated_at=now,
     )
-    await repository.upsert_entries([in_month, out_of_month])
+    await repository.upsert_entries([in_month_submitted, in_month_pending, out_of_month])
 
     results = await repository.get_month_entries(
         "integration-test-2@sandvik.com", "2026-08-01_", "2026-09-01_"
     )
+    # Only the in-month, Submitted row is returned — the Pending row (unsubmitted) and the
+    # out-of-month row (date range) are both excluded.
     assert len(results) == 1
     assert results[0].entry_date == date(2026, 8, 15)

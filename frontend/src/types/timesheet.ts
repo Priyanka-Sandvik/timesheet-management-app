@@ -42,10 +42,24 @@ export interface GenerateResponse {
   rowsCreated: number;
 }
 
-export interface CopyPreviousResponse {
-  rowsCopied: number;
-}
-
 export interface SubmitResponse {
   status: "Submitted";
+}
+
+export interface EmployeeWeekStatus {
+  userId: string;
+  weekStart: string;
+  weekEnd: string;
+  status: TimesheetStatus;
+}
+
+export interface AdminPeriodStatusResponse {
+  period: string;
+  employees: EmployeeWeekStatus[];
+}
+
+export interface AdminSetStatusResponse {
+  userId: string;
+  weekStart: string;
+  status: TimesheetStatus;
 }
