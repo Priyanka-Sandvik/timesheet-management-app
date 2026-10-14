@@ -17,23 +17,35 @@ AZURE_STORAGE_CONNECTION_STRING: keyvaultref:https://timesheet-key-vault.vault.a
 
 USE_LOCAL_KEY: false
 
+# Container App names (environment DNS). Service-to-service calls use these over
+# http://<app-name> with no port — ACA's proxy maps to each app's target port.
+PROFILE_CONTAINER_APP_NAME: timesheet-int-profile-service-ca
+TASK_CONTAINER_APP_NAME: timesheet-int-task-service-ca
+TIMELOG_CONTAINER_APP_NAME: timesheet-int-timelog-service-ca
+AZ_CONTAINERAPP_ENV_DEFAULT_DOMAIN: delightfulsky-50195baa.westeurope.azurecontainerapps.io
+
 PROFILE_SERVICE_PORT: 8001
-JWKS_URL: http://localhost:8001/.well-known/jwks.json
+TASK_SERVICE_PORT: 8002
+TIMELOG_SERVICE_PORT: 8003
+
+# Inter-service base URLs (inside the Container Apps environment).
+PROFILE_SERVICE_BASE_URL: http://timesheet-int-profile-service-ca
+TASK_SERVICE_BASE_URL: http://timesheet-int-task-service-ca
+
+# Public HTTPS FQDNs (browser / Static Web App). Vite inlines these at build time.
+VITE_PROFILE_SERVICE_BASE_URL: https://timesheet-int-profile-service-ca.delightfulsky-50195baa.westeurope.azurecontainerapps.io
+VITE_TASK_SERVICE_BASE_URL: https://timesheet-int-task-service-ca.delightfulsky-50195baa.westeurope.azurecontainerapps.io
+VITE_TIMELOG_SERVICE_BASE_URL: https://timesheet-int-timelog-service-ca.delightfulsky-50195baa.westeurope.azurecontainerapps.io
 
 TASKS_TABLE_NAME: Tasks
-TASK_SERVICE_PORT: 8002
-
 JWT_ISSUER: profile-service
 VALIDATE_ASSIGN_EMAILS_WITH_PROFILE_SERVICE: true
 PROFILE_SERVICE_TIMEOUT_SECONDS: 5.0
 DEFAULT_ADMIN_LIST_PAGE_SIZE: 50
 
 TIMESHEET_TABLE_NAME: Timesheet
-TASK_SERVICE_BASE_URL: http://localhost:8002
-PROFILE_SERVICE_BASE_URL: http://localhost:8001
 
-TIMELOG_SERVICE_PORT: 8003
-
+AZ_SUBSCRIPTION_ID: 84e3aa83-7aa4-4846-ac7c-1853604445db
 AZ_ACR_NAME: timesheetintregistry
 AZ_ACR_LOGIN_SERVER: timesheetintregistry.azurecr.io
 AZ_REGITSRY_ID: /subscriptions/84e3aa83-7aa4-4846-ac7c-1853604445db/resourceGroups/rg-timesheet-app/providers/Microsoft.ContainerRegistry/registries/timesheetintregistry

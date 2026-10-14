@@ -5,6 +5,9 @@
 .env.*
 *.secrets.yml
 secrets.yml
+.env.*
+frontend/.env.example
+
 
 # Cursor plans
 .cursor/plans/
@@ -95,3 +98,7 @@ azurite_data/
 *.tmp
 *.swp
 .~*
+
+.cursor
+graphify-out/
+
