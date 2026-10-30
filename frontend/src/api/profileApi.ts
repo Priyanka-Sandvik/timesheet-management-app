@@ -1,13 +1,15 @@
 import { apiClient } from "./client";
 import type {
   AdminUsersResponse,
+  CreateUserRequest,
   LoginRequest,
   LoginResponse,
   MeResponse,
   RegisterRequest,
   RegisterResponse,
-  UpdateUserStatusRequest,
-  UpdateUserStatusResponse,
+  UpdateUserRequest,
+  User,
+  UserImportResponse,
 } from "@/types";
 
 export const profileApi = {
@@ -45,11 +47,24 @@ export const profileApi = {
     });
   },
 
-  adminSetUserStatus(email: string, body: UpdateUserStatusRequest) {
-    return apiClient.request<UpdateUserStatusResponse>(
-      "profile",
-      `/admin/users/${encodeURIComponent(email)}/status`,
-      { method: "PUT", body }
-    );
+  adminCreateUser(body: CreateUserRequest) {
+    return apiClient.request<User>("profile", "/admin/users", { method: "POST", body });
+  },
+
+  adminUpdateUser(email: string, body: UpdateUserRequest) {
+    return apiClient.request<User>("profile", `/admin/users/${encodeURIComponent(email)}`, {
+      method: "PUT",
+      body,
+    });
+  },
+
+  adminImportUsers(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiClient.request<UserImportResponse>("profile", "/admin/users/import", {
+      method: "POST",
+      body: formData,
+      isFormData: true,
+    });
   },
 };

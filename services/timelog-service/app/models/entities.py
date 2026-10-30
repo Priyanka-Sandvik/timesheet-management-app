@@ -40,6 +40,7 @@ class TimesheetEntity:
     created_at: datetime
     updated_at: datetime
     etag: str | None = field(default=None)
+    billing_done: bool = False
 
     @property
     def row_key(self) -> str:
@@ -56,6 +57,7 @@ class TimesheetEntity:
             "HoursLogged": float(self.hours_logged),
             "Notes": self.notes,
             "Status": self.status,
+            "BillingDone": bool(self.billing_done),
             "CreatedAt": self.created_at.isoformat(),
             "UpdatedAt": self.updated_at.isoformat(),
         }
@@ -73,6 +75,7 @@ class TimesheetEntity:
             hours_logged=float(entity.get("HoursLogged", 0.0)),
             notes=entity.get("Notes"),
             status=entity.get("Status", STATUS_PENDING),
+            billing_done=bool(entity.get("BillingDone", False)),
             created_at=_parse_dt(entity.get("CreatedAt")),
             updated_at=_parse_dt(entity.get("UpdatedAt")),
             etag=entity.metadata.get("etag") if hasattr(entity, "metadata") else None,

@@ -10,7 +10,13 @@ from py_common.core.jwt_verify import AuthenticatedUser
 
 from app.config import get_settings
 from app.core.jwt import build_jwt_verifier_dependencies
-from app.models.schemas import AdminPeriodStatusResponse, AdminSetStatusRequest, AdminSetStatusResponse
+from app.models.schemas import (
+    AdminPeriodStatusResponse,
+    AdminSetBillingRequest,
+    AdminSetBillingResponse,
+    AdminSetStatusRequest,
+    AdminSetStatusResponse,
+)
 from app.services.export_service import previous_calendar_month
 from app.services.profile_client import ProfileServiceClient
 from app.services.timesheet_service import TimesheetService
@@ -62,3 +68,15 @@ async def set_week_status(
 ):
     new_status = await service.set_week_status(user_id=user_id, week_start=weekStart, new_status=body.status)
     return AdminSetStatusResponse(userId=user_id, weekStart=weekStart, status=new_status)
+
+
+@router.put("/billing/{user_id}", response_model=AdminSetBillingResponse)
+async def set_week_billing_done(
+    user_id: str,
+    weekStart: date,
+    body: AdminSetBillingRequest,
+    user: AuthenticatedUser = Depends(require_admin),
+    service: TimesheetService = Depends(get_timesheet_service),
+):
+    billing_done = await service.set_billing_done(user_id=user_id, week_start=weekStart, billing_done=body.billingDone)
+    return AdminSetBillingResponse(userId=user_id, weekStart=weekStart, billingDone=billing_done)

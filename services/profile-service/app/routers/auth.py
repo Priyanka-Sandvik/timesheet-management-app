@@ -35,8 +35,8 @@ async def login(
     payload: LoginRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
-    token, expires_in = auth_service.login(payload.email, payload.password)
-    return TokenResponse(access_token=token, expires_in=expires_in)
+    token, expires_in, alternate = auth_service.login(payload.email, payload.password)
+    return TokenResponse(access_token=token, expires_in=expires_in, alternate_access_token=alternate)
 
 
 @router.post(
@@ -48,8 +48,8 @@ async def login_as_admin(
     payload: LoginRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
-    token, expires_in = auth_service.login_as_admin(payload.email, payload.password)
-    return TokenResponse(access_token=token, expires_in=expires_in)
+    token, expires_in, alternate = auth_service.login_as_admin(payload.email, payload.password)
+    return TokenResponse(access_token=token, expires_in=expires_in, alternate_access_token=alternate)
 
 
 @router.get("/.well-known/jwks.json")

@@ -1,6 +1,7 @@
 import { apiClient } from "./client";
 import type {
   AdminPeriodStatusResponse,
+  AdminSetBillingResponse,
   AdminSetStatusResponse,
   BulkUpsertRequest,
   BulkUpsertResponse,
@@ -58,6 +59,18 @@ export const timelogApi = {
         method: "PUT",
         query: { weekStart },
         body: { status },
+      },
+    );
+  },
+
+  setAdminWeekBillingDone(userId: string, weekStart: string, billingDone: boolean) {
+    return apiClient.request<AdminSetBillingResponse>(
+      "timelog",
+      `/admin/timesheet/billing/${encodeURIComponent(userId)}`,
+      {
+        method: "PUT",
+        query: { weekStart },
+        body: { billingDone },
       },
     );
   },

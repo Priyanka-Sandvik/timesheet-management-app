@@ -154,6 +154,7 @@ class TimesheetService:
                     hours_logged=entry.hours,
                     notes=entry.notes,
                     status=existing.status if existing else STATUS_PENDING,
+                    billing_done=existing.billing_done if existing else False,
                     created_at=existing.created_at if existing else now,
                     updated_at=now,
                 )
@@ -243,8 +244,15 @@ class TimesheetService:
                     if any(e.status == STATUS_SUBMITTED for e in week_entities)
                     else STATUS_PENDING
                 )
+                billing_done = any(e.billing_done for e in week_entities)
                 results.append(
-                    EmployeeWeekStatus(userId=email, weekStart=w_start, weekEnd=week_end(w_start), status=status)
+                    EmployeeWeekStatus(
+                        userId=email,
+                        weekStart=w_start,
+                        weekEnd=week_end(w_start),
+                        status=status,
+                        billingDone=billing_done,
+                    )
                 )
         return results
 
@@ -260,9 +268,35 @@ class TimesheetService:
                 message="No timesheet entries found for this week",
             )
 
+        if any(e.billing_done for e in entities):
+            raise AppError(
+                status_code=409,
+                code="CONFLICT",
+                message="Billing is marked done for this week; its status can no longer be changed",
+            )
+
         now = utcnow()
         for e in entities:
             e.status = new_status
             e.updated_at = now
         await self._repository.upsert_entries(entities)
         return new_status
+
+    async def set_billing_done(self, *, user_id: str, week_start: date, billing_done: bool) -> bool:
+        week_start = normalize_week_start(week_start)
+        w_end = week_end(week_start)
+
+        entities = await self._repository.get_week_entries(user_id, week_start, w_end)
+        if not entities:
+            raise AppError(
+                status_code=404,
+                code="NOT_FOUND",
+                message="No timesheet entries found for this week",
+            )
+
+        now = utcnow()
+        for e in entities:
+            e.billing_done = billing_done
+            e.updated_at = now
+        await self._repository.upsert_entries(entities)
+        return billing_done

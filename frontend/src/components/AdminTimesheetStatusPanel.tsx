@@ -47,6 +47,19 @@ export function AdminTimesheetStatusPanel() {
     }
   }
 
+  async function handleBillingChange(userId: string, weekStart: string, billingDone: boolean) {
+    const key = `${userId}_${weekStart}`;
+    setPendingKey(key);
+    try {
+      await timelogApi.setAdminWeekBillingDone(userId, weekStart, billingDone);
+      setWeeks((prev) => prev.map((w) => (w.userId === userId && w.weekStart === weekStart ? { ...w, billingDone } : w)));
+    } catch {
+      showToast(`Failed to update billing for ${userId}`, "error");
+    } finally {
+      setPendingKey(null);
+    }
+  }
+
   return (
     <div>
       <div className={styles.field}>
@@ -66,7 +79,12 @@ export function AdminTimesheetStatusPanel() {
       {loading ? (
         <p>Loading...</p>
       ) : (
-        <AdminTimesheetStatusTable weeks={weeks} onStatusChange={handleStatusChange} pendingKey={pendingKey} />
+        <AdminTimesheetStatusTable
+          weeks={weeks}
+          onStatusChange={handleStatusChange}
+          onBillingChange={handleBillingChange}
+          pendingKey={pendingKey}
+        />
       )}
     </div>
   );

@@ -64,10 +64,11 @@ a service outside its container).
    ```
 
    Open the printed local URL (typically http://localhost:5173). Register an account to
-   use the employee timesheet pages, or use "Login as Admin" with one of the fixed
-   credentials in Profile Service's `ADMIN_CREDENTIALS` (default in `docker-compose.yml`:
-   `admin1@sandvik.com` / `Admin@123`) to land on the Admin Console's Task Import screen —
-   admin accounts are never registered, they only exist in `ADMIN_CREDENTIALS`.
+   use the employee timesheet pages. To get admin access, list your email in Profile
+   Service's `ADMIN_CREDENTIALS` (semicolon-separated emails; default in
+   `docker-compose.yml`: `admin1@sandvik.com;admin2@sandvik.com`), register that email, and
+   log in with the same password. Admins can use the header menu to switch between the
+   employee and admin panels.
 
 ---
 

@@ -8,7 +8,8 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />;
   }
   if (isAdmin) {
-    // Admins are fixed config accounts, not employees - they never have a timesheet.
+    // The employee panel only runs on an employee (isAdmin=false) token; an admin token
+    // belongs in the admin panel, and the header switch swaps tokens.
     return <Navigate to="/admin/task-import" replace />;
   }
   return (

@@ -84,6 +84,27 @@ async def test_set_week_status_pending_to_submitted_locks_edits(assignments: lis
 
 
 @pytest.mark.asyncio
+async def test_billing_done_blocks_status_change_until_unticked(assignments: list[dict]) -> None:
+    repo = FakeTimesheetRepository()
+    service = TimesheetService(repo, FakeTaskServiceClient(assignments))
+
+    week_start = date(2026, 8, 3)
+    await service.generate_week(user_id="fay@sandvik.com", week_start=week_start, bearer_token="tok")
+    await service.submit_week(user_id="fay@sandvik.com", week_start=week_start)
+    await service.set_billing_done(user_id="fay@sandvik.com", week_start=week_start, billing_done=True)
+
+    with pytest.raises(AppError) as exc_info:
+        await service.set_week_status(user_id="fay@sandvik.com", week_start=week_start, new_status="Pending")
+    assert exc_info.value.status_code == 409
+
+    results = await service.get_period_statuses(["fay@sandvik.com"], "2026-08")
+    assert results[0].billingDone is True
+
+    await service.set_billing_done(user_id="fay@sandvik.com", week_start=week_start, billing_done=False)
+    assert await service.set_week_status(user_id="fay@sandvik.com", week_start=week_start, new_status="Pending") == "Pending"
+
+
+@pytest.mark.asyncio
 async def test_set_week_status_raises_404_when_no_entries_exist() -> None:
     repo = FakeTimesheetRepository()
     task_client = FakeTaskServiceClient([])

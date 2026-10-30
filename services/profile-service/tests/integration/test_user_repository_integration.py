@@ -70,24 +70,52 @@ def test_create_duplicate_raises_resource_exists_error(user_repository):
         user_repository.create(email="dup@sandvik.com", full_name="Dup", password_hash="h")
 
 
-def test_update_active_status(user_repository):
-    user_repository.create(email="toggle@sandvik.com", full_name="Toggle", password_hash="h")
-    updated = user_repository.update_active_status("toggle@sandvik.com", False)
-    assert updated is not None
-    assert updated.is_active is False
+def test_update_profile_roundtrip_keeps_password_and_clears_blanks(user_repository):
+    from datetime import date
 
-    fetched = user_repository.get_by_email("toggle@sandvik.com")
+    from app.models.user import UserDetails
+
+    user_repository.create(
+        email="edit@sandvik.com", full_name="Edit", password_hash="h", details=UserDetails(vendor="Old", vendor_rate=10)
+    )
+    updated = user_repository.update_profile(
+        "edit@sandvik.com", "Edited", UserDetails(end_date=date(2020, 1, 1), sandvik_rate=99.5)
+    )
+    assert updated is not None
+
+    fetched = user_repository.get_by_email("edit@sandvik.com")
+    assert fetched.full_name == "Edited"
+    assert fetched.password_hash == "h"
+    assert fetched.vendor is None and fetched.vendor_rate is None
+    assert fetched.end_date == date(2020, 1, 1) and fetched.sandvik_rate == 99.5
     assert fetched.is_active is False
 
 
-def test_update_active_status_unknown_user_returns_none(user_repository):
-    assert user_repository.update_active_status("nobody@sandvik.com", False) is None
+def test_user_without_password_roundtrip_then_set_password(user_repository):
+    user_repository.create(email="invited@sandvik.com", full_name="Invited")
+    assert user_repository.get_by_email("invited@sandvik.com").password_hash is None
+    user_repository.set_password_hash("invited@sandvik.com", "newhash")
+    assert user_repository.get_by_email("invited@sandvik.com").password_hash == "newhash"
+
+
+def test_update_profile_unknown_user_returns_none(user_repository):
+    from app.models.user import UserDetails
+
+    assert user_repository.update_profile("nobody@sandvik.com", "X", UserDetails()) is None
 
 
 def test_list_all_and_active_only(user_repository):
+    from datetime import date
+
+    from app.models.user import UserDetails
+
     user_repository.create(email="active1@sandvik.com", full_name="Active One", password_hash="h")
-    user_repository.create(email="inactive1@sandvik.com", full_name="Inactive One", password_hash="h")
-    user_repository.update_active_status("inactive1@sandvik.com", False)
+    user_repository.create(
+        email="inactive1@sandvik.com",
+        full_name="Inactive One",
+        password_hash="h",
+        details=UserDetails(end_date=date(2020, 1, 1)),
+    )
 
     all_users = user_repository.list_all(active_only=False)
     active_users = user_repository.list_all(active_only=True)

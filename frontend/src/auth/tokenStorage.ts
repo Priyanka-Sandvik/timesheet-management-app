@@ -8,6 +8,7 @@
 // documented deviation - flagged here and in the final report.
 
 const TOKEN_KEY = "ts_access_token";
+const ALT_TOKEN_KEY = "ts_alternate_token";
 
 export function getToken(): string | null {
   return sessionStorage.getItem(TOKEN_KEY);
@@ -19,4 +20,17 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(ALT_TOKEN_KEY);
+}
+
+// Admins hold a second token (the other panel's) so they can switch panels without
+// logging in again. The employee token has isAdmin=false, so an admin in the employee
+// panel has no admin rights on any service.
+export function getAlternateToken(): string | null {
+  return sessionStorage.getItem(ALT_TOKEN_KEY);
+}
+
+export function setAlternateToken(token: string | null): void {
+  if (token) sessionStorage.setItem(ALT_TOKEN_KEY, token);
+  else sessionStorage.removeItem(ALT_TOKEN_KEY);
 }

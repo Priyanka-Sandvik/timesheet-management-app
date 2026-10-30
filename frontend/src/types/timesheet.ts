@@ -51,6 +51,7 @@ export interface EmployeeWeekStatus {
   weekStart: string;
   weekEnd: string;
   status: TimesheetStatus;
+  billingDone: boolean;
 }
 
 export interface AdminPeriodStatusResponse {
@@ -62,4 +63,10 @@ export interface AdminSetStatusResponse {
   userId: string;
   weekStart: string;
   status: TimesheetStatus;
+}
+
+export interface AdminSetBillingResponse {
+  userId: string;
+  weekStart: string;
+  billingDone: boolean;
 }

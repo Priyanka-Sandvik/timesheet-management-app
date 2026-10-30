@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 import { Logo } from "./Logo";
 import styles from "./Header.module.css";
@@ -14,8 +14,10 @@ function getInitials(name: string | null, email: string | undefined): string {
 }
 
 export function Header() {
-  const { fullName, claims, logout } = useAuth();
+  const { fullName, claims, canSwitchPanel, switchPanel, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const inAdminPanel = pathname.startsWith("/admin");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -48,6 +50,18 @@ export function Header() {
         </button>
         {menuOpen && (
           <div className={styles.menu}>
+            {canSwitchPanel && (
+              <button
+                className={styles.menuItem}
+                onClick={() => {
+                  setMenuOpen(false);
+                  switchPanel();
+                  navigate(inAdminPanel ? "/my-timesheet" : "/admin/task-import");
+                }}
+              >
+                {inAdminPanel ? "Switch to employee panel" : "Switch to admin panel"}
+              </button>
+            )}
             <button className={styles.menuItem} onClick={handleLogout}>
               Logout
             </button>

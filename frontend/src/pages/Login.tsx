@@ -22,7 +22,7 @@ export function Login() {
     setSubmitting("login");
     try {
       const response = await profileApi.login({ email, password });
-      login(response.access_token);
+      login(response.access_token, undefined, response.alternate_access_token);
       // Plain "Log In" always redirects to My Time Sheet, admin or not - UI spec §3.
       navigate("/my-timesheet", { replace: true });
     } catch (err) {
@@ -42,7 +42,7 @@ export function Login() {
     setSubmitting("admin");
     try {
       const response = await profileApi.loginAsAdmin({ email, password });
-      login(response.access_token);
+      login(response.access_token, undefined, response.alternate_access_token);
       // Admin entry point lands on Task Import, not My Time Sheet - UI spec §3.
       navigate("/admin/task-import", { replace: true });
     } catch (err) {

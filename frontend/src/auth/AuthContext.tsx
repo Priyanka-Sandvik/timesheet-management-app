@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { decodeJwt, isTokenExpired } from "./jwt";
-import { clearToken, getToken, setToken } from "./tokenStorage";
+import { clearToken, getAlternateToken, getToken, setAlternateToken, setToken } from "./tokenStorage";
 import type { DecodedToken } from "@/types";
 
 interface AuthState {
@@ -9,7 +9,11 @@ interface AuthState {
   isAuthenticated: boolean;
   isAdmin: boolean;
   fullName: string | null;
-  login: (token: string, fullName?: string) => void;
+  /** True when the user holds a token for the other panel (admins only). */
+  canSwitchPanel: boolean;
+  login: (token: string, fullName?: string, alternateToken?: string | null) => void;
+  /** Swaps the active token with the alternate one (admin <-> employee panel). */
+  switchPanel: () => void;
   logout: () => void;
 }
 
@@ -27,23 +31,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     return existing;
   });
+  const [altToken, setAltTokenState] = useState<string | null>(() => getAlternateToken());
   const [fullName, setFullName] = useState<string | null>(() => sessionStorage.getItem(NAME_KEY));
 
   const claims = useMemo(() => (token ? decodeJwt(token) : null), [token]);
 
-  const login = useCallback((newToken: string, name?: string) => {
+  const login = useCallback((newToken: string, name?: string, alternateToken?: string | null) => {
     setToken(newToken);
     setTokenState(newToken);
+    setAlternateToken(alternateToken ?? null);
+    setAltTokenState(alternateToken ?? null);
     if (name) {
       sessionStorage.setItem(NAME_KEY, name);
       setFullName(name);
     }
   }, []);
 
+  const switchPanel = useCallback(() => {
+    if (!token || !altToken) return;
+    setToken(altToken);
+    setAlternateToken(token);
+    setTokenState(altToken);
+    setAltTokenState(token);
+  }, [token, altToken]);
+
   const logout = useCallback(() => {
     clearToken();
     sessionStorage.removeItem(NAME_KEY);
     setTokenState(null);
+    setAltTokenState(null);
     setFullName(null);
   }, []);
 
@@ -53,7 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!token && !isTokenExpired(claims),
     isAdmin: !!claims?.isAdmin,
     fullName,
+    canSwitchPanel: !!altToken,
     login,
+    switchPanel,
     logout,
   };
 

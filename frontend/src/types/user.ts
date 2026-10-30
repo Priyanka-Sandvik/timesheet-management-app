@@ -3,8 +3,14 @@
 export interface User {
   email: string;
   fullName: string;
-  isActive: boolean;
-  createdAt: string;
+  isActive: boolean; // derived by the server from endDate
+  startDate: string | null; // YYYY-MM-DD
+  endDate: string | null; // YYYY-MM-DD
+  vendor: string | null;
+  vendorEmail: string | null;
+  vendorPhone: string | null;
+  vendorRate: number | null;
+  sandvikRate: number | null;
 }
 
 export interface MeResponse {
@@ -34,19 +40,32 @@ export interface LoginResponse {
   access_token: string;
   token_type: "bearer";
   expires_in: number;
+  alternate_access_token?: string | null;
 }
 
 export interface AdminUsersResponse {
   users: User[];
 }
 
-export interface UpdateUserStatusRequest {
-  isActive: boolean;
+export interface UpdateUserRequest {
+  fullName: string;
+  startDate: string | null;
+  endDate: string | null;
+  vendor: string | null;
+  vendorEmail: string | null;
+  vendorPhone: string | null;
+  vendorRate: number | null;
+  sandvikRate: number | null;
 }
 
-export interface UpdateUserStatusResponse {
+export interface CreateUserRequest extends UpdateUserRequest {
   email: string;
-  isActive: boolean;
+}
+
+export interface UserImportResponse {
+  created: number;
+  updated: number;
+  errors: { row: number; reason: string }[];
 }
 
 // Decoded JWT payload shape (client-side decode only, for UI routing decisions).

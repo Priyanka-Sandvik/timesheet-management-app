@@ -36,10 +36,10 @@ PROFILE_BASE = "http://localhost:8001"
 TASK_BASE = "http://localhost:8002"
 TIMELOG_BASE = "http://localhost:8003"
 
-# Must match an entry in Profile Service's ADMIN_CREDENTIALS env var (see docker-compose.yml
-# / .env). Default docker-compose.yml value includes admin1@sandvik.com / "Admin@123".
+# Must be listed in Profile Service's ADMIN_CREDENTIALS env var (see docker-compose.yml
+# / .env). The script registers it if needed; if already registered, ADMIN_PASSWORD must match.
 ADMIN_EMAIL = "admin1@sandvik.com"
-ADMIN_PASSWORD = "Admin@123"  # plaintext, acceptable since stored in Key Vault
+ADMIN_PASSWORD = "Admin@123"
 
 PASSWORD = "abcdefgh"
 
@@ -96,13 +96,19 @@ def main() -> None:
     employee_token = r.json()["access_token"]
     _ok("logged in as employee")
 
-    # --- 2. Log in as admin (fixed credentials, no registration) ---
+    # --- 2. Register (if needed) + log in as admin; admins use their single registered password ---
+    r = requests.post(
+        f"{PROFILE_BASE}/auth/register",
+        json={"email": ADMIN_EMAIL, "fullName": "Smoke Test Admin", "password": ADMIN_PASSWORD},
+    )
+    if r.status_code not in (201, 409):
+        _fail("register admin", r)
     r = requests.post(
         f"{PROFILE_BASE}/auth/login-as-admin", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}
     )
     if r.status_code != 200:
         _fail(
-            "login-as-admin (is ADMIN_EMAIL:ADMIN_PASSWORD in the Profile Service's "
+            "login-as-admin (is ADMIN_EMAIL in the Profile Service's "
             "ADMIN_CREDENTIALS env var?)",
             r,
         )

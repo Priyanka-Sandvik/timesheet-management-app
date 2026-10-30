@@ -27,11 +27,9 @@ class Settings(BaseSettings):
     LOCAL_KEY_DIR: str = "./.keys"
 
     # --- Auth / business rules ---
-    # Fixed admin accounts: semicolon-separated "email:password" pairs (plaintext passwords
-    # are acceptable here because these credentials are stored in Key Vault with access
-    # control and audit logging, not in git/cleartext config). Admins are NOT rows in the
-    # Users table and never go through /auth/register - they authenticate only via
-    # /auth/login-as-admin against this list.
+    # Admin accounts: semicolon-separated emails (a legacy ":password" suffix is ignored).
+    # Admins register through /auth/register like any employee and use that one password;
+    # being listed here only grants the isAdmin claim on login.
     ADMIN_CREDENTIALS: str = ""
     ALLOWED_EMAIL_DOMAIN: str = "sandvik.com"
 
@@ -48,19 +46,17 @@ class Settings(BaseSettings):
     JWT_ISSUER: str = "profile-service"
 
     @property
-    def admin_credentials_map(self) -> dict[str, str]:
-        """Case-insensitive {email: plaintext-password} map parsed from ADMIN_CREDENTIALS.
+    def admin_emails(self) -> set[str]:
+        """Lower-cased admin emails parsed from ADMIN_CREDENTIALS.
 
-        Format: "email1:password1;email2:password2". Pairs are semicolon-separated.
+        Format: "email1;email2". Entries are semicolon-separated. A legacy ":password" suffix
+        is accepted but ignored: admins use the single password they registered with.
         """
-        result: dict[str, str] = {}
-        for pair in self.ADMIN_CREDENTIALS.split(";"):
-            pair = pair.strip()
-            if not pair:
-                continue
-            email, _, password = pair.partition(":")
-            if email and password:
-                result[email.strip().lower()] = password
+        result: set[str] = set()
+        for entry in self.ADMIN_CREDENTIALS.split(";"):
+            email = entry.partition(":")[0].strip().lower()
+            if email:
+                result.add(email)
         return result
 
 

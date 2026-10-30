@@ -6,10 +6,11 @@ import styles from "./AdminTaskTable.module.css";
 interface AdminTimesheetStatusTableProps {
   weeks: EmployeeWeekStatus[];
   onStatusChange: (userId: string, weekStart: string, next: TimesheetStatus) => void;
-  pendingKey: string | null; // `${userId}_${weekStart}` currently being saved, or null
+  onBillingChange: (userId: string, weekStart: string, billingDone: boolean) => void;
+  pendingKey: string | null; //`${userId}_${weekStart}` currently being saved, or null
 }
 
-export function AdminTimesheetStatusTable({ weeks, onStatusChange, pendingKey }: AdminTimesheetStatusTableProps) {
+export function AdminTimesheetStatusTable({ weeks, onStatusChange, onBillingChange, pendingKey }: AdminTimesheetStatusTableProps) {
   const [search, setSearch] = useState("");
 
   const visible = useMemo(() => {
@@ -36,6 +37,7 @@ export function AdminTimesheetStatusTable({ weeks, onStatusChange, pendingKey }:
             <th>Week Start</th>
             <th>Week End</th>
             <th>Status</th>
+            <th>Billing done</th>
           </tr>
         </thead>
         <tbody>
@@ -49,8 +51,17 @@ export function AdminTimesheetStatusTable({ weeks, onStatusChange, pendingKey }:
                 <td>
                   <StatusDropdown
                     value={w.status}
-                    disabled={pendingKey === key}
+                    disabled={pendingKey === key || w.billingDone}
                     onChange={(next) => onStatusChange(w.userId, w.weekStart, next)}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={w.billingDone}
+                    disabled={pendingKey === key}
+                    onChange={(e) => onBillingChange(w.userId, w.weekStart, e.target.checked)}
+                    aria-label={`Billing done for ${w.userId}, week of ${w.weekStart}`}
                   />
                 </td>
               </tr>
@@ -58,7 +69,7 @@ export function AdminTimesheetStatusTable({ weeks, onStatusChange, pendingKey }:
           })}
           {visible.length === 0 && (
             <tr>
-              <td colSpan={4} style={{ textAlign: "center", color: "var(--color-text-muted)", padding: 24 }}>
+              <td colSpan={5} style={{ textAlign: "center", color: "var(--color-text-muted)", padding: 24 }}>
                 No timesheets found for this month.
               </td>
             </tr>

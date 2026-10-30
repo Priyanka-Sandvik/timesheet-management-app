@@ -70,6 +70,7 @@ class EmployeeWeekStatus(BaseModel):
     weekStart: date
     weekEnd: date
     status: str
+    billingDone: bool = False
 
 
 class AdminPeriodStatusResponse(BaseModel):
@@ -93,3 +94,13 @@ class AdminSetStatusResponse(BaseModel):
     userId: str
     weekStart: date
     status: str
+
+
+class AdminSetBillingRequest(BaseModel):
+    billingDone: bool
+
+
+class AdminSetBillingResponse(BaseModel):
+    userId: str
+    weekStart: date
+    billingDone: bool
