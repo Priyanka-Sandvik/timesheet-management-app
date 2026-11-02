@@ -2,13 +2,18 @@
 Timelog Service's monthly export employee list)."""
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, Query, UploadFile
 from py_common.core.errors import AppError
 
+from app.core.logging import log_event
 from app.dependencies import AuthenticatedUser, get_require_admin, get_user_service
 from app.models.schemas import (
     AdminUserListResponse,
     AdminUserSummary,
+    CoeAdminSyncRequest,
+    CoeAdminSyncResponse,
     CreateUserRequest,
     UpdateUserRequest,
     UserImportResponse,
@@ -17,6 +22,7 @@ from app.services.user_import import parse_import_file
 from app.services.user_service import UserService
 
 router = APIRouter(tags=["admin"])
+logger = logging.getLogger("profile-service")
 
 _require_admin = get_require_admin()
 
@@ -51,6 +57,26 @@ async def import_users(
 
     content = await file.read()  # parsed entirely in memory - never written to disk
     return user_service.import_users(parse_import_file(file.filename, content))
+
+
+# Declared before /admin/users/{email} so "coe-admins" isn't read as an email.
+@router.put("/admin/users/coe-admins", response_model=CoeAdminSyncResponse)
+async def sync_coe_admins(
+    payload: CoeAdminSyncRequest,
+    _admin: AuthenticatedUser = Depends(_require_admin),
+    user_service: UserService = Depends(get_user_service),
+) -> CoeAdminSyncResponse:
+    result = user_service.sync_coe_admins(payload.emails)
+    log_event(
+        logger,
+        "coe_admin_sync",
+        user=_admin.email,
+        requested=len(payload.emails),
+        promoted=result.promoted,
+        demoted=result.demoted,
+        unknown=result.unknown,
+    )
+    return result
 
 
 @router.put("/admin/users/{email}", response_model=AdminUserSummary)

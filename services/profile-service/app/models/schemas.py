@@ -99,6 +99,18 @@ class AdminUserListResponse(BaseModel):
     users: list[AdminUserSummary]
 
 
+class CoeAdminSyncRequest(BaseModel):
+    """The complete set of emails that should currently hold the CoE-admin flag."""
+
+    emails: list[str]
+
+
+class CoeAdminSyncResponse(BaseModel):
+    promoted: list[str]
+    demoted: list[str]
+    unknown: list[str]  # in the request but not a user here, so nothing to flag
+
+
 class UserImportRowError(BaseModel):
     row: int
     reason: str

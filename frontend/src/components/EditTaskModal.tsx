@@ -1,14 +1,16 @@
 import { useState } from "react";
-import type { Task, TaskStatus, UpdateTaskRequest } from "@/types";
+import type { Task, TaskStatus, UpdateTaskRequest, User } from "@/types";
+import { CoeResponsibleSelect } from "./CoeResponsibleSelect";
 import styles from "./ModalShared.module.css";
 
 interface EditTaskModalProps {
   task: Task;
+  users: User[];
   onClose: () => void;
   onSave: (taskCode: string, body: UpdateTaskRequest) => Promise<void>;
 }
 
-export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
+export function EditTaskModal({ task, users, onClose, onSave }: EditTaskModalProps) {
   const [taskName, setTaskName] = useState(task.taskName);
   const [description, setDescription] = useState(task.description ?? "");
   const [sponsor, setSponsor] = useState(task.sponsor ?? "");
@@ -52,11 +54,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
         <div className={styles.row2}>
           <div className={styles.field}>
             <label className={styles.label}>CoE Responsible</label>
-            <input
-              className={styles.input}
-              value={coeResponsible}
-              onChange={(e) => setCoeResponsible(e.target.value)}
-            />
+            <CoeResponsibleSelect users={users} value={coeResponsible} onChange={setCoeResponsible} />
           </div>
           <div className={styles.field}>
             <label className={styles.label}>Status</label>

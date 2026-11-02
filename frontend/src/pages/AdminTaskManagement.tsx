@@ -170,6 +170,7 @@ export function AdminTaskManagement() {
 
       <AdminTaskTable
         tasks={templateTasks}
+        users={users}
         assignedCounts={assignedCounts}
         search={search}
         onSearchChange={setSearch}
@@ -186,10 +187,10 @@ export function AdminTaskManagement() {
 
       {loading && <p style={{ color: "var(--color-text-muted)" }}>Loading...</p>}
 
-      {addingTask && <AddTaskModal onClose={() => setAddingTask(false)} onSave={handleAddTask} />}
+      {addingTask && <AddTaskModal users={users} onClose={() => setAddingTask(false)} onSave={handleAddTask} />}
 
       {editingTask && (
-        <EditTaskModal task={editingTask} onClose={() => setEditingTask(null)} onSave={handleSaveEdit} />
+        <EditTaskModal task={editingTask} users={users} onClose={() => setEditingTask(null)} onSave={handleSaveEdit} />
       )}
 
       {assigningTask && (

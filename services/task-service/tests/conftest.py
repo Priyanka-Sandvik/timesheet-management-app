@@ -96,7 +96,11 @@ def settings() -> Settings:
     # Unit tests disable the optional Profile Service email-validation call on assign so
     # they never make real network requests; that behavior is covered by mocking
     # profile_client directly where needed (see test_assign.py).
-    return Settings(_env_file=None, VALIDATE_ASSIGN_EMAILS_WITH_PROFILE_SERVICE=False)
+    return Settings(
+        _env_file=None,
+        VALIDATE_ASSIGN_EMAILS_WITH_PROFILE_SERVICE=False,
+        SYNC_COE_ADMINS_WITH_PROFILE_SERVICE=False,
+    )
 
 
 def _override_user(email: str, is_admin: bool):

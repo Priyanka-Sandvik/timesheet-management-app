@@ -1,9 +1,11 @@
-import type { Task } from "@/types";
+import type { Task, User } from "@/types";
+import { coeDisplayName } from "./CoeResponsibleSelect";
 import { StatusBadge } from "./StatusBadge";
 import styles from "./AdminTaskTable.module.css";
 
 interface AdminTaskTableProps {
   tasks: Task[]; // template rows only (one per taskCode)
+  users: User[]; // to show the CoE Responsible's name for the stored email
   assignedCounts: Record<string, number>;
   search: string;
   onSearchChange: (v: string) => void;
@@ -20,6 +22,7 @@ interface AdminTaskTableProps {
 
 export function AdminTaskTable({
   tasks,
+  users,
   assignedCounts,
   search,
   onSearchChange,
@@ -73,7 +76,7 @@ export function AdminTaskTable({
               <td>{task.description ?? "-"}</td>
               <td>{task.sponsor ?? "-"}</td>
               <td>{task.costCentre ?? "-"}</td>
-              <td>{task.coeResponsible ?? "-"}</td>
+              <td>{coeDisplayName(users, task.coeResponsible)}</td>
               <td>
                 <StatusBadge status={task.status} />
               </td>

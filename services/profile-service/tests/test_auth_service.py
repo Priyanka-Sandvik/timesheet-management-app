@@ -185,3 +185,19 @@ def test_login_as_admin_non_admin_returns_401(auth_service):
 def test_is_admin_case_insensitive(auth_service):
     assert auth_service.is_admin("Admin1@Sandvik.com") is True
     assert auth_service.is_admin("nobody@sandvik.com") is False
+
+
+def test_coe_admin_gets_admin_token_at_login(auth_service):
+    _register(auth_service)  # employee1@sandvik.com, not a config admin
+    _, _, alternate = auth_service.login("employee1@sandvik.com", "P@ssw0rd123")
+    assert alternate is None
+
+    auth_service._repository.set_coe_admin("employee1@sandvik.com", True)
+    _, _, alternate = auth_service.login("employee1@sandvik.com", "P@ssw0rd123")
+    assert alternate is not None
+    token, _, _ = auth_service.login_as_admin("employee1@sandvik.com", "P@ssw0rd123")
+    import jwt as pyjwt
+
+    public_key_pem = auth_service._jwt_issuer._key_source.get_public_key_pem()
+    claims = pyjwt.decode(token, public_key_pem, algorithms=["RS256"], issuer="profile-service")
+    assert claims["isAdmin"] is True

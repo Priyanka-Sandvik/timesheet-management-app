@@ -33,16 +33,21 @@ class UserEntity(UserDetails):
     `is_active` is derived, not stored: a user is active until their end date has passed
     (no end date means active indefinitely).
 
-    NOTE: there is intentionally no Role/isAdmin column. Admin status comes only from the
-    fixed ADMIN_CREDENTIALS config, checked exclusively by /auth/login-as-admin, and embedded
-    only in the issued JWT. An admin may also have a row here (registered as an employee),
-    which is what lists them in User Management and lets them use the employee panel.
+    NOTE: there is intentionally no general Role/isAdmin column. Admin status comes from the
+    fixed ADMIN_CREDENTIALS config, plus `is_coe_admin` below, and is embedded only in the
+    issued JWT. An admin may also have a row here (registered as an employee), which is what
+    lists them in User Management and lets them use the employee panel.
+
+    `is_coe_admin` is maintained by Task Service (PUT /admin/users/coe-admins) after every
+    task change: True while the user is CoE Responsible of an Open or OnHold task. It is kept
+    apart from the config admins so a task change can never demote one of those.
     """
 
     email: str
     full_name: str
     password_hash: str | None = None
     password_algo: str = "argon2id"
+    is_coe_admin: bool = False
     created_at: datetime
     updated_at: datetime
 

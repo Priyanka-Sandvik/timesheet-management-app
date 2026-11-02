@@ -34,13 +34,14 @@ async def import_tasks(
     file: UploadFile,
     user: AuthenticatedUser = Depends(require_admin),
     service: TaskService = Depends(get_task_service),
+    bearer_token: str | None = Depends(get_bearer_token),
 ):
     if not file.filename:
         raise AppError(status_code=400, code="VALIDATION_ERROR", message="Uploaded file must have a filename")
 
     content = await file.read()  # parsed entirely in memory - never written to disk
     parsed = parse_import_file(file.filename, content)
-    return await service.import_tasks(parsed=parsed, actor_email=user.email)
+    return await service.import_tasks(parsed=parsed, actor_email=user.email, bearer_token=bearer_token)
 
 
 @router.post("", response_model=TaskOut, status_code=201)
@@ -48,8 +49,9 @@ async def create_task(
     body: TaskCreateRequest,
     user: AuthenticatedUser = Depends(require_admin),
     service: TaskService = Depends(get_task_service),
+    bearer_token: str | None = Depends(get_bearer_token),
 ):
-    return await service.create_task(body=body, actor_email=user.email)
+    return await service.create_task(body=body, actor_email=user.email, bearer_token=bearer_token)
 
 
 @router.post("/{task_code}/assign", response_model=AssignResponse)
@@ -97,8 +99,11 @@ async def update_task_template(
     body: TaskUpdateRequest,
     user: AuthenticatedUser = Depends(require_admin),
     service: TaskService = Depends(get_task_service),
+    bearer_token: str | None = Depends(get_bearer_token),
 ):
-    return await service.update_template(task_code=task_code, update=body, actor_email=user.email)
+    return await service.update_template(
+        task_code=task_code, update=body, actor_email=user.email, bearer_token=bearer_token
+    )
 
 
 @router.delete("/{task_code}", status_code=204)
@@ -106,5 +111,6 @@ async def delete_task_template(
     task_code: str,
     user: AuthenticatedUser = Depends(require_admin),
     service: TaskService = Depends(get_task_service),
+    bearer_token: str | None = Depends(get_bearer_token),
 ):
-    await service.delete_template(task_code=task_code, actor_email=user.email)
+    await service.delete_template(task_code=task_code, actor_email=user.email, bearer_token=bearer_token)

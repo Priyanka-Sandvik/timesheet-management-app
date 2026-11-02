@@ -56,6 +56,13 @@ class FakeUserRepository:
         user.updated_at = datetime.now(timezone.utc)
         return user
 
+    def set_coe_admin(self, email: str, value: bool) -> UserEntity | None:
+        user = self._store.get(email)
+        if user is None:
+            return None
+        user.is_coe_admin = value
+        return user
+
     def list_all(self, *, active_only: bool = False) -> list[UserEntity]:
         users = list(self._store.values())
         if active_only:

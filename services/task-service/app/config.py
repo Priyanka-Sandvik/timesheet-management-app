@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # Service before assigning. See app/services/profile_client.py.
     VALIDATE_ASSIGN_EMAILS_WITH_PROFILE_SERVICE: bool = True
     PROFILE_SERVICE_TIMEOUT_SECONDS: float = 5.0
+    # Whether task changes push the CoE-admin set to Profile Service (see
+    # TaskService._sync_coe_admins). Disabled in unit tests so they never hit the network.
+    SYNC_COE_ADMINS_WITH_PROFILE_SERVICE: bool = True
     DEFAULT_ADMIN_LIST_PAGE_SIZE: int = 50
 
 

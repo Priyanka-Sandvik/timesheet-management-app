@@ -27,6 +27,7 @@ class UserRepository:
             "FullName": user.full_name,
             "PasswordHash": user.password_hash,
             "PasswordAlgo": user.password_algo,
+            "IsCoEAdmin": user.is_coe_admin,
             "StartDate": user.start_date.isoformat() if user.start_date else None,
             "EndDate": user.end_date.isoformat() if user.end_date else None,
             "Vendor": user.vendor,
@@ -51,6 +52,7 @@ class UserRepository:
             full_name=entity["FullName"],
             password_hash=entity.get("PasswordHash"),
             password_algo=entity.get("PasswordAlgo", "argon2id"),
+            is_coe_admin=bool(entity.get("IsCoEAdmin", False)),
             start_date=date.fromisoformat(start_date) if start_date else None,
             end_date=date.fromisoformat(end_date) if end_date else None,
             vendor=entity.get("Vendor"),
@@ -108,6 +110,17 @@ class UserRepository:
         if existing is None:
             return None
         existing.password_hash = password_hash
+        existing.updated_at = datetime.now(timezone.utc)
+        self._table_client.update_entity(entity=self._to_entity_dict(existing), mode=UpdateMode.REPLACE)
+        return existing
+
+    def set_coe_admin(self, email: str, value: bool) -> UserEntity | None:
+        """Sets only the CoE-admin flag. update_profile / set_password_hash start from the
+        stored row, so the flag survives them."""
+        existing = self.get_by_email(email)
+        if existing is None:
+            return None
+        existing.is_coe_admin = value
         existing.updated_at = datetime.now(timezone.utc)
         self._table_client.update_entity(entity=self._to_entity_dict(existing), mode=UpdateMode.REPLACE)
         return existing

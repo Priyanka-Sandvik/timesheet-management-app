@@ -182,3 +182,28 @@ def test_import_update_that_would_put_end_before_existing_start_is_rejected(user
 def test_import_rejects_wrong_domain_rows(user_service):
     result = user_service.import_users(parse_csv(b"Name,Email\nA,a@othercorp.com\n"))
     assert result.created == 0 and len(result.errors) == 1
+
+
+def test_sync_coe_admins_promotes_and_demotes(user_service, repo):
+    result = user_service.sync_coe_admins(["Employee1@Sandvik.com", "ghost@sandvik.com"])
+    assert result.promoted == ["employee1@sandvik.com"]
+    assert result.demoted == []
+    assert result.unknown == ["ghost@sandvik.com"]
+    assert user_service.get_me("employee1@sandvik.com").isAdmin is True
+
+    # Resending the same set changes nothing; dropping the email demotes them again.
+    assert user_service.sync_coe_admins(["employee1@sandvik.com"]).promoted == []
+    result = user_service.sync_coe_admins([])
+    assert result.demoted == ["employee1@sandvik.com"]
+    assert user_service.get_me("employee1@sandvik.com").isAdmin is False
+
+
+def test_sync_coe_admins_never_demotes_config_admin(user_service):
+    user_service.sync_coe_admins([])
+    assert user_service.get_me("admin1@sandvik.com").isAdmin is True
+
+
+def test_coe_admin_flag_survives_profile_edit(user_service):
+    user_service.sync_coe_admins(["employee1@sandvik.com"])
+    user_service.update_user("employee1@sandvik.com", UpdateUserRequest(fullName="Renamed"))
+    assert user_service.get_me("employee1@sandvik.com").isAdmin is True

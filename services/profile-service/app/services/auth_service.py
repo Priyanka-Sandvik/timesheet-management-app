@@ -96,7 +96,10 @@ class AuthService:
         isAdmin, so an admin in the employee panel gets no admin rights on any service."""
         employee = self._jwt_issuer.issue_token(email=user.email, is_admin=False, full_name=user.full_name)
         admin = None
-        if self.is_admin(user.email):
+        # Config admins, plus anyone Task Service currently flags as CoE Responsible of an
+        # Open/OnHold task. Either way the flag is read at login, so a change applies from
+        # the person's next login.
+        if self.is_admin(user.email) or user.is_coe_admin:
             admin = self._jwt_issuer.issue_token(email=user.email, is_admin=True, full_name=user.full_name)
         return employee, admin
 

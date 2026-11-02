@@ -5,6 +5,7 @@ from py_common.core.errors import AppError
 
 from app.models.schemas import (
     AdminUserSummary,
+    CoeAdminSyncResponse,
     CreateUserRequest,
     MeResponse,
     UpdateUserRequest,
@@ -41,8 +42,8 @@ class UserService:
         self._admin_emails = {e.lower() for e in admin_emails}
         self._allowed_email_domain = allowed_email_domain.lower().lstrip("@") if allowed_email_domain else None
 
-    def _is_admin(self, email: str) -> bool:
-        return email.strip().lower() in self._admin_emails
+    def _is_admin(self, user: UserEntity) -> bool:
+        return user.email.strip().lower() in self._admin_emails or user.is_coe_admin
 
     def _domain_problem(self, email: str) -> str | None:
         """Admin-created users must later register themselves, which only accepts the
@@ -56,7 +57,7 @@ class UserService:
             email=user.email,
             fullName=user.full_name,
             isActive=user.is_active,
-            isAdmin=self._is_admin(user.email),
+            isAdmin=self._is_admin(user),
             startDate=user.start_date,
             endDate=user.end_date,
             vendor=user.vendor,
@@ -75,7 +76,7 @@ class UserService:
         return MeResponse(
             email=user.email,
             fullName=user.full_name,
-            isAdmin=self._is_admin(user.email),
+            isAdmin=self._is_admin(user),
             isActive=user.is_active,
         )
 
@@ -112,6 +113,28 @@ class UserService:
         if updated is None:
             raise AppError(status_code=404, code="NOT_FOUND", message="User not found")
         return self._to_summary(updated)
+
+    def sync_coe_admins(self, emails: list[str]) -> CoeAdminSyncResponse:
+        """Makes the CoE-admin flag match `emails` exactly: users in the list get it, users
+        outside it lose it. Idempotent, so Task Service can resend the full set after any
+        task change. Config admins are unaffected (their rights don't come from this flag).
+        """
+        wanted = {e.strip().lower() for e in emails if e and e.strip()}
+        promoted: list[str] = []
+        demoted: list[str] = []
+        known: set[str] = set()
+
+        for user in self._repository.list_all():
+            known.add(user.email)
+            should_have = user.email in wanted
+            if user.is_coe_admin == should_have:
+                continue
+            self._repository.set_coe_admin(user.email, should_have)
+            (promoted if should_have else demoted).append(user.email)
+
+        return CoeAdminSyncResponse(
+            promoted=sorted(promoted), demoted=sorted(demoted), unknown=sorted(wanted - known)
+        )
 
     def import_users(self, parsed: UserImportParseResult) -> UserImportResponse:
         """Creates new users and updates existing ones (matched by email). For an existing

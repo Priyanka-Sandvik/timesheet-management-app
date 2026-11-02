@@ -1,13 +1,15 @@
 import { useState } from "react";
-import type { CreateTaskRequest, TaskStatus } from "@/types";
+import type { CreateTaskRequest, TaskStatus, User } from "@/types";
+import { CoeResponsibleSelect } from "./CoeResponsibleSelect";
 import styles from "./ModalShared.module.css";
 
 interface AddTaskModalProps {
+  users: User[];
   onClose: () => void;
   onSave: (body: CreateTaskRequest) => Promise<void>;
 }
 
-export function AddTaskModal({ onClose, onSave }: AddTaskModalProps) {
+export function AddTaskModal({ users, onClose, onSave }: AddTaskModalProps) {
   const [taskCode, setTaskCode] = useState("");
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
@@ -69,11 +71,7 @@ export function AddTaskModal({ onClose, onSave }: AddTaskModalProps) {
         <div className={styles.row2}>
           <div className={styles.field}>
             <label className={styles.label}>CoE Responsible</label>
-            <input
-              className={styles.input}
-              value={coeResponsible}
-              onChange={(e) => setCoeResponsible(e.target.value)}
-            />
+            <CoeResponsibleSelect users={users} value={coeResponsible} onChange={setCoeResponsible} />
           </div>
           <div className={styles.field}>
             <label className={styles.label}>Status</label>

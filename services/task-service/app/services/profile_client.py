@@ -70,3 +70,40 @@ async def validate_user_exists(
         return ProfileClientResult(valid=False, reason="User is not active in Profile Service")
 
     return ProfileClientResult(valid=True)
+
+
+async def sync_coe_admins(
+    *,
+    emails: list[str],
+    bearer_token: str,
+    base_url: str,
+    timeout_seconds: float = 5.0,
+) -> bool:
+    """Sends Profile Service the complete set of emails that should hold the CoE-admin flag
+    (PUT /admin/users/coe-admins, admin-only, so the calling admin's Bearer JWT is forwarded).
+    Returns False, after logging a warning, on any failure: the task change that triggered
+    this is already saved and must not fail because of it. The next task change resends the
+    full set, which repairs any drift.
+    """
+    headers = {"Authorization": f"Bearer {bearer_token}"}
+    url = f"{base_url.rstrip('/')}/admin/users/coe-admins"
+    try:
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            response = await client.put(url, headers=headers, json={"emails": emails})
+    except httpx.HTTPError as exc:
+        logger.warning("coe_admin_sync_unreachable", extra={"extra_fields": {"error": str(exc)}})
+        return False
+
+    if response.status_code >= 400:
+        logger.warning(
+            "coe_admin_sync_error_status", extra={"extra_fields": {"status_code": response.status_code}}
+        )
+        return False
+
+    try:
+        body = response.json()
+    except ValueError:
+        body = {}
+    if isinstance(body, dict) and body.get("unknown"):
+        logger.warning("coe_admin_sync_unknown_users", extra={"extra_fields": {"emails": body["unknown"]}})
+    return True

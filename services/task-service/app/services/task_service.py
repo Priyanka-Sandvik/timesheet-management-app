@@ -23,15 +23,59 @@ from app.models.schemas import (
     TaskUpdateRequest,
 )
 from app.repositories.task_repository import entity_to_task_out
-from app.services.profile_client import validate_user_exists
+from app.services.profile_client import sync_coe_admins, validate_user_exists
 
 logger = logging.getLogger("task-service")
+
+# A CoE Responsible of a task in one of these statuses is an admin.
+COE_ADMIN_STATUSES = ("Open", "OnHold")
+
+
+def _normalize_coe(value: str | None) -> str | None:
+    """CoE Responsible is stored as the user's email, lowercased to match Users-table keys.
+    Anything else (older free text) is kept as typed."""
+    if value is None:
+        return None
+    value = value.strip()
+    return value.lower() if "@" in value else value
 
 
 class TaskService:
     def __init__(self, repository, settings: Settings) -> None:
         self._repo = repository
         self._settings = settings
+
+    # ------------------------------------------------------------------ #
+    # CoE Responsible -> admin
+    # ------------------------------------------------------------------ #
+    async def _sync_coe_admins(self, bearer_token: str | None) -> None:
+        """Recomputes who is CoE Responsible of an Open/OnHold task and sends that full set to
+        Profile Service, which flags them as admins (and un-flags everyone else). Runs after
+        every task write, so one code path covers create/edit/status change/delete/import,
+        and a CoE change updates both the old and the new person. Never raises: a failure is
+        logged and the next task change repairs it.
+        """
+        if not self._settings.SYNC_COE_ADMINS_WITH_PROFILE_SERVICE or not bearer_token:
+            return
+        try:
+            templates = await self._repo.list_by_partition(UNASSIGNED_PARTITION)
+            emails = sorted(
+                {
+                    coe.lower()
+                    for t in templates
+                    if t.get("Status", "Open") in COE_ADMIN_STATUSES
+                    and (coe := (t.get("CoEResponsible") or "").strip())
+                    and "@" in coe
+                }
+            )
+            await sync_coe_admins(
+                emails=emails,
+                bearer_token=bearer_token,
+                base_url=self._settings.PROFILE_SERVICE_BASE_URL,
+                timeout_seconds=self._settings.PROFILE_SERVICE_TIMEOUT_SECONDS,
+            )
+        except Exception:  # pragma: no cover - defensive; must never fail the task write
+            logger.warning("coe_admin_sync_failed", exc_info=True)
 
     # ------------------------------------------------------------------ #
     # GET /api/v1/tasks
@@ -141,7 +185,9 @@ class TaskService:
     # ------------------------------------------------------------------ #
     # POST /admin/tasks/import
     # ------------------------------------------------------------------ #
-    async def import_tasks(self, *, parsed: ImportParseResult, actor_email: str) -> ImportResult:
+    async def import_tasks(
+        self, *, parsed: ImportParseResult, actor_email: str, bearer_token: str | None = None
+    ) -> ImportResult:
         errors: list[ImportRowError] = list(parsed.errors)
         imported = 0
 
@@ -151,7 +197,7 @@ class TaskService:
                 "Description": row.description,
                 "Sponsor": row.sponsor,
                 "CostCentre": row.cost_centre,
-                "CoEResponsible": row.coe_responsible,
+                "CoEResponsible": _normalize_coe(row.coe_responsible),
                 "Status": row.status,
             }
             try:
@@ -160,6 +206,7 @@ class TaskService:
             except Exception as exc:  # pragma: no cover - defensive; storage failures are rare
                 errors.append(ImportRowError(row=0, reason=f"Failed to save TaskCode '{row.task_code}': {exc}"))
 
+        await self._sync_coe_admins(bearer_token)
         result = ImportResult(imported=imported, skipped=len(errors), errors=errors)
         log_event(
             logger,
@@ -174,7 +221,9 @@ class TaskService:
     # ------------------------------------------------------------------ #
     # POST /admin/tasks - manual single-task creation
     # ------------------------------------------------------------------ #
-    async def create_task(self, *, body: TaskCreateRequest, actor_email: str) -> TaskOut:
+    async def create_task(
+        self, *, body: TaskCreateRequest, actor_email: str, bearer_token: str | None = None
+    ) -> TaskOut:
         existing = await self._repo.get_template(body.taskCode)
         if existing is not None:
             raise AppError(
@@ -188,10 +237,11 @@ class TaskService:
             "Description": body.description,
             "Sponsor": body.sponsor,
             "CostCentre": body.costCentre,
-            "CoEResponsible": body.coeResponsible,
+            "CoEResponsible": _normalize_coe(body.coeResponsible),
             "Status": body.status,
         }
         entity = await self._repo.upsert_template(body.taskCode, fields)
+        await self._sync_coe_admins(bearer_token)
         log_event(logger, "task_create", user=actor_email, task_code=body.taskCode)
         return entity_to_task_out(entity)
 
@@ -330,7 +380,9 @@ class TaskService:
     # ------------------------------------------------------------------ #
     # PUT /admin/tasks/{taskCode}
     # ------------------------------------------------------------------ #
-    async def update_template(self, *, task_code: str, update: TaskUpdateRequest, actor_email: str) -> TaskOut:
+    async def update_template(
+        self, *, task_code: str, update: TaskUpdateRequest, actor_email: str, bearer_token: str | None = None
+    ) -> TaskOut:
         existing = await self._repo.get_template(task_code)
         if existing is None:
             raise AppError(
@@ -347,7 +399,7 @@ class TaskService:
         if update.costCentre is not None:
             fields["CostCentre"] = update.costCentre
         if update.coeResponsible is not None:
-            fields["CoEResponsible"] = update.coeResponsible
+            fields["CoEResponsible"] = _normalize_coe(update.coeResponsible)
         if update.status is not None:
             fields["Status"] = update.status
 
@@ -362,16 +414,20 @@ class TaskService:
                     assignment["PartitionKey"], task_code, {"Status": update.status}
                 )
 
+        await self._sync_coe_admins(bearer_token)
         log_event(logger, "task_template_update", user=actor_email, task_code=task_code, fields=list(fields.keys()))
         return entity_to_task_out(entity)
 
     # ------------------------------------------------------------------ #
     # DELETE /admin/tasks/{taskCode}
     # ------------------------------------------------------------------ #
-    async def delete_template(self, *, task_code: str, actor_email: str) -> None:
+    async def delete_template(
+        self, *, task_code: str, actor_email: str, bearer_token: str | None = None
+    ) -> None:
         deleted = await self._repo.delete_template(task_code)
         if not deleted:
             raise AppError(
                 status_code=404, code="NOT_FOUND", message=f"Task template '{task_code}' does not exist"
             )
+        await self._sync_coe_admins(bearer_token)
         log_event(logger, "task_template_delete", user=actor_email, task_code=task_code)
