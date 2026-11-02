@@ -146,3 +146,40 @@ def test_create_task_conflict_on_duplicate_code(client_factory):
 
     r2 = client.post("/admin/tasks", json=payload)
     assert r2.status_code == 409
+
+
+def test_template_status_change_propagates_to_existing_assignments(client_factory):
+    admin_client = client_factory(email="admin@sandvik.com", is_admin=True)
+    _import_one(admin_client, "TSK1", "Do the thing")
+    admin_client.post("/admin/tasks/TSK1/assign", json={"emails": ["employee@sandvik.com", "other@sandvik.com"]})
+
+    response = admin_client.put("/admin/tasks/TSK1", json={"status": "Closed"})
+    assert response.status_code == 200
+
+    for email in ("employee@sandvik.com", "other@sandvik.com"):
+        my_tasks = client_factory(email=email, is_admin=False).get("/api/v1/tasks").json()["tasks"]
+        assert [t["status"] for t in my_tasks] == ["Closed"]
+
+    # Reopening propagates too.
+    client_factory(email="admin@sandvik.com", is_admin=True).put("/admin/tasks/TSK1", json={"status": "Open"})
+    my_tasks = client_factory(email="employee@sandvik.com", is_admin=False).get("/api/v1/tasks").json()["tasks"]
+    assert [t["status"] for t in my_tasks] == ["Open"]
+
+
+def test_assign_rejects_closed_task(client_factory):
+    client = client_factory(email="admin@sandvik.com", is_admin=True)
+    _import_one(client, "TSK1", "Do the thing")
+    client.put("/admin/tasks/TSK1", json={"status": "Closed"})
+
+    response = client.post("/admin/tasks/TSK1/assign", json={"emails": ["employee@sandvik.com"]})
+    assert response.status_code == 409
+
+    employee_client = client_factory(email="employee@sandvik.com", is_admin=False)
+    assert employee_client.get("/api/v1/tasks").json()["tasks"] == []
+
+    # Reopening makes it assignable again.
+    client_factory(email="admin@sandvik.com", is_admin=True).put("/admin/tasks/TSK1", json={"status": "Open"})
+    response = client_factory(email="admin@sandvik.com", is_admin=True).post(
+        "/admin/tasks/TSK1/assign", json={"emails": ["employee@sandvik.com"]}
+    )
+    assert response.status_code == 200

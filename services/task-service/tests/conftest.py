@@ -45,6 +45,9 @@ class FakeTaskRepository:
     async def delete_assignment(self, email: str, task_code: str) -> bool:
         return self._delete(email, task_code)
 
+    async def list_assignments_for_task(self, task_code: str):
+        return [e for (pk, rk), e in self.store.items() if rk == task_code and pk != UNASSIGNED]
+
     async def list_by_partition(self, partition_key: str):
         return [e for (pk, _rk), e in self.store.items() if pk == partition_key]
 

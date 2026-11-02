@@ -46,6 +46,10 @@ class FakeTimesheetRepository:
         for e in entities:
             await self.upsert_entry(e)
 
+    async def delete_entries(self, entities: list[TimesheetEntity]) -> None:
+        for e in entities:
+            self._store.pop((e.user_id, e.row_key), None)
+
     def all_entries(self) -> list[TimesheetEntity]:
         return list(self._store.values())
 

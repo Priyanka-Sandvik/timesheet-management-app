@@ -15,7 +15,6 @@ interface LoggedTimeCardsTableProps {
   entries: TimesheetEntry[];
   weekDays: Date[];
   readOnly: boolean;
-  removedTaskCodes: Set<string>;
   onHourChange: (taskCode: string, entryDate: string, hours: number) => void;
   onRemoveTask: (taskCode: string) => void;
 }
@@ -24,7 +23,6 @@ export function LoggedTimeCardsTable({
   entries,
   weekDays,
   readOnly,
-  removedTaskCodes,
   onHourChange,
   onRemoveTask,
 }: LoggedTimeCardsTableProps) {
@@ -46,27 +44,14 @@ export function LoggedTimeCardsTable({
     return Array.from(map.values());
   }, [entries]);
 
-  // ASSUMPTION: the architecture doc's §8.3 Timelog contract has no dedicated
-  // "delete entries" route. Rather than invent a new backend endpoint outside
-  // the documented contract, the remove icon zeroes out all 7 days for that
-  // task via the existing PUT /api/v1/timesheet/entries bulk-upsert. The row
-  // is then hidden client-side (tracked in `removedTaskCodes`, per UI spec
-  // §4.3) - functionally equivalent to "removed from this week's sheet".
-  //
-  // This must NOT be inferred from "all hours are 0", because every row starts
-  // at 0 hours immediately after Generate/Copy - inferring removal from that
-  // would hide freshly generated rows before the employee ever gets a chance
-  // to enter hours.
-  const visibleRows = rows.filter((row) => !removedTaskCodes.has(row.taskCode));
-
   const dayIsoList = weekDays.map(toIsoDate);
 
   const columnTotals = dayIsoList.map((iso) =>
-    visibleRows.reduce((sum, row) => sum + (row.hoursByDate[iso] ?? 0), 0)
+    rows.reduce((sum, row) => sum + (row.hoursByDate[iso] ?? 0), 0)
   );
   const grandTotal = columnTotals.reduce((a, b) => a + b, 0);
 
-  if (visibleRows.length === 0) {
+  if (rows.length === 0) {
     return null;
   }
 
@@ -88,7 +73,7 @@ export function LoggedTimeCardsTable({
           </tr>
         </thead>
         <tbody>
-          {visibleRows.map((row) => {
+          {rows.map((row) => {
             const rowTotal = dayIsoList.reduce((sum, iso) => sum + (row.hoursByDate[iso] ?? 0), 0);
             return (
               <tr key={row.taskCode}>
@@ -114,7 +99,7 @@ export function LoggedTimeCardsTable({
                   {!readOnly && (
                     <button
                       className={styles.removeBtn}
-                      title="Remove this task from this week's sheet"
+                      title="Remove this task from this week only"
                       onClick={() => onRemoveTask(row.taskCode)}
                     >
                       &#8854;

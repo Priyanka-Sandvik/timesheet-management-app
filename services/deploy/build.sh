@@ -81,7 +81,7 @@ docker buildx build --platform linux/amd64 \
   -t "${IMAGE_REPO_PS}:${TAG_RELEASE}" \
   "$ROOT_DIR" --push
 
-# Task Service
+# # Task Service
 docker buildx build --platform linux/amd64 \
   -f "$BACKEND_V1_DIR/task-service/Dockerfile" \
   -t "${IMAGE_REPO_TS}:${TAG_RELEASE}" \
@@ -96,4 +96,3 @@ docker buildx build --platform linux/amd64 \
 echo "✅ Image pushed: ${IMAGE_REPO_PS}:${TAG_RELEASE}"
 echo "✅ Image pushed: ${IMAGE_REPO_TS}:${TAG_RELEASE}"
 echo "✅ Image pushed: ${IMAGE_REPO_TLS}:${TAG_RELEASE}"
- 

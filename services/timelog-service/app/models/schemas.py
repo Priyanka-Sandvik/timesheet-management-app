@@ -38,6 +38,10 @@ class BulkUpsertResponse(BaseModel):
     saved: int
 
 
+class DeleteEntriesResponse(BaseModel):
+    deleted: int
+
+
 class EntryOut(BaseModel):
     taskCode: str
     taskName: str | None = None

@@ -25,6 +25,14 @@ export const timelogApi = {
     });
   },
 
+  /** Removes one task from a single week of the caller's own sheet (that week only). */
+  removeTaskFromWeek(weekStart: string, taskCode: string) {
+    return apiClient.request<{ deleted: number }>("timelog", "/api/v1/timesheet/entries", {
+      method: "DELETE",
+      query: { weekStart, taskCode },
+    });
+  },
+
   generate(weekStart: string) {
     return apiClient.request<GenerateResponse>("timelog", "/api/v1/timesheet/generate", {
       method: "POST",

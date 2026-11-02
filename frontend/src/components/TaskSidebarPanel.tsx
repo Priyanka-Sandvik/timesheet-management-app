@@ -8,13 +8,17 @@ import styles from "./TaskSidebarPanel.module.css";
 
 interface TaskSidebarPanelProps {
   tasks: Task[];
+  /** Assigned tasks with no card on the viewed week - these get a "+" to add them back. */
+  addableTaskCodes: Set<string>;
   onProjectAdded: () => void;
+  onAddToWeek: (taskCode: string) => Promise<void>;
 }
 
-export function TaskSidebarPanel({ tasks, onProjectAdded }: TaskSidebarPanelProps) {
+export function TaskSidebarPanel({ tasks, addableTaskCodes, onProjectAdded, onAddToWeek }: TaskSidebarPanelProps) {
   const [search, setSearch] = useState("");
   const [showAddProject, setShowAddProject] = useState(false);
   const [removingCode, setRemovingCode] = useState<string | null>(null);
+  const [addingCode, setAddingCode] = useState<string | null>(null);
   const { showToast } = useToast();
 
   const visibleTasks = useMemo(() => {
@@ -36,6 +40,15 @@ export function TaskSidebarPanel({ tasks, onProjectAdded }: TaskSidebarPanelProp
       showToast("Failed to remove project.");
     } finally {
       setRemovingCode(null);
+    }
+  }
+
+  async function handleAddToWeek(taskCode: string) {
+    setAddingCode(taskCode);
+    try {
+      await onAddToWeek(taskCode);
+    } finally {
+      setAddingCode(null);
     }
   }
 
@@ -75,6 +88,8 @@ export function TaskSidebarPanel({ tasks, onProjectAdded }: TaskSidebarPanelProp
                 task={task}
                 onRemove={handleRemove}
                 removing={removingCode === task.taskCode}
+                onAddToWeek={addableTaskCodes.has(task.taskCode) ? handleAddToWeek : undefined}
+                adding={addingCode === task.taskCode}
               />
             ))}
           </div>

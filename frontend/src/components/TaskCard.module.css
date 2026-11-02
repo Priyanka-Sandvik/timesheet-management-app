@@ -30,6 +30,29 @@
   flex-shrink: 0;
 }
 
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.addBtn {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+.addBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .removeBtn:hover {
   color: var(--color-danger);
 }

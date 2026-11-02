@@ -139,6 +139,7 @@ deploy_service() {
       --resource-group "$AZ_RESOURCE_GROUP" \
       --subscription "$AZ_SUBSCRIPTION_ID" \
       --image "$image_full" \
+      --revision-suffix "r$(date +%m%d%H%M)" \
       --set-env-vars $envs \
       --container-name "$containerapp_name" \
       --cpu 0.5 --memory 1.0Gi \

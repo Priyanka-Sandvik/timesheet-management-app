@@ -58,6 +58,15 @@
   border-color: var(--color-accent);
 }
 
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actionBtn:disabled:hover {
+  border-color: var(--color-border);
+}
+
 .dangerActionBtn {
   padding: 5px 10px;
   border-radius: var(--radius-sm);

@@ -84,7 +84,12 @@ export function AdminTaskTable({
                   <button className={styles.actionBtn} onClick={() => onEdit(task)}>
                     Edit
                   </button>
-                  <button className={styles.actionBtn} onClick={() => onAssign(task)}>
+                  <button
+                    className={styles.actionBtn}
+                    onClick={() => onAssign(task)}
+                    disabled={task.status === "Closed"}
+                    title={task.status === "Closed" ? "Closed tasks can't be assigned. Reopen it first." : undefined}
+                  >
                     Assign
                   </button>
                   <button className={styles.dangerActionBtn} onClick={() => onDeactivate(task)}>

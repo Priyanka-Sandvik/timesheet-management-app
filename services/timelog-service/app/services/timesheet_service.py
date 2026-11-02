@@ -143,6 +143,14 @@ class TimesheetService:
         for entry in entries:
             existing = await self._repository.get_entry(user_id, entry.entryDate, entry.taskCode)
             assignment = assignment_by_code.get(entry.taskCode, {})
+            if existing is None and assignment and assignment.is_closed:
+                # Closed tasks can't be added to time cards; rows already on the sheet stay
+                # editable so past entries aren't frozen.
+                raise AppError(
+                    status_code=409,
+                    code="CONFLICT",
+                    message=f"Task '{entry.taskCode}' is closed and can't be added to a time sheet",
+                )
             to_save.append(
                 TimesheetEntity(
                     user_id=user_id,
@@ -163,12 +171,21 @@ class TimesheetService:
         await self._repository.upsert_entries(to_save)
         return len(to_save)
 
-    async def generate_week(self, *, user_id: str, week_start: date, bearer_token: str) -> int:
+    async def generate_week(
+        self, *, user_id: str, week_start: date, bearer_token: str, is_admin: bool = False
+    ) -> int:
         week_start = normalize_week_start(week_start)
-        assignments = await self._task_client.get_my_tasks(bearer_token)
+        # A submitted week is locked, so tasks can't be added to it after the fact.
+        await self._assert_not_locked(user_id, week_start, is_admin)
+        # Closed tasks are never added to a generated time sheet.
+        assignments = [a for a in await self._task_client.get_my_tasks(bearer_token) if not a.is_closed]
         w_end = week_end(week_start)
         existing_entities = await self._repository.get_week_entries(user_id, week_start, w_end)
         existing_keys = {(e.entry_date, e.task_code) for e in existing_entities}
+        # The standard-workday split below only applies to a fresh week. When cards already
+        # exist (re-generating to pick up newly assigned tasks), new rows start at 0h so
+        # they don't push existing days past the hours the employee already entered.
+        week_already_generated = bool(existing_entities)
 
         # Default hours: a standard workday (9h, Mon-Fri) is split evenly, in 0.25-hour
         # increments, across that day's assigned tasks. Weekends have no standard workday
@@ -191,7 +208,7 @@ class TimesheetService:
                         task_name=assignment.task_name,
                         project_name=assignment.project_name,
                         week_start_date=week_start,
-                        hours_logged=default_hours_by_task[i] if is_weekday else 0.0,
+                        hours_logged=default_hours_by_task[i] if is_weekday and not week_already_generated else 0.0,
                         notes=None,
                         status=STATUS_PENDING,
                         created_at=now,
@@ -202,6 +219,19 @@ class TimesheetService:
 
         await self._repository.upsert_entries(to_create)
         return len(to_create)
+
+    async def remove_task_from_week(
+        self, *, user_id: str, week_start: date, task_code: str, is_admin: bool
+    ) -> int:
+        """Deletes one task's rows for a single week only; the task assignment and every
+        other week's entries are untouched. Returns the number of rows removed."""
+        week_start = normalize_week_start(week_start)
+        await self._assert_not_locked(user_id, week_start, is_admin)
+
+        entities = await self._repository.get_week_entries(user_id, week_start, week_end(week_start))
+        to_delete = [e for e in entities if e.task_code == task_code]
+        await self._repository.delete_entries(to_delete)
+        return len(to_delete)
 
     async def submit_week(self, *, user_id: str, week_start: date) -> str:
         week_start = normalize_week_start(week_start)

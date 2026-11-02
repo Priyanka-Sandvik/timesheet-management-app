@@ -77,6 +77,13 @@ class TimesheetRepository:
     async def upsert_entry(self, entity: TimesheetEntity) -> None:
         await self._table_client.upsert_entity(entity.to_table_entity(), mode=UpdateMode.MERGE)
 
+    async def delete_entries(self, entities: list[TimesheetEntity]) -> None:
+        for entity in entities:
+            try:
+                await self._table_client.delete_entity(partition_key=entity.user_id, row_key=entity.row_key)
+            except ResourceNotFoundError:
+                pass
+
     async def upsert_entries(self, entities: list[TimesheetEntity]) -> None:
         for entity in entities:
             await self.upsert_entry(entity)

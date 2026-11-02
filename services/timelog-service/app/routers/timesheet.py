@@ -13,6 +13,7 @@ from app.core.jwt import build_jwt_verifier_dependencies
 from app.models.schemas import (
     BulkUpsertRequest,
     BulkUpsertResponse,
+    DeleteEntriesResponse,
     GenerateResponse,
     SubmitResponse,
     TimesheetGridResponse,
@@ -79,6 +80,20 @@ async def put_entries(
     return BulkUpsertResponse(saved=saved)
 
 
+@router.delete("/entries", response_model=DeleteEntriesResponse)
+async def delete_task_entries(
+    weekStart: date,
+    taskCode: str,
+    user: AuthenticatedUser = Depends(require_user),
+    service: TimesheetService = Depends(get_timesheet_service),
+):
+    """Removes a task from one week of the caller's own time sheet (that week only)."""
+    deleted = await service.remove_task_from_week(
+        user_id=user.email, week_start=weekStart, task_code=taskCode, is_admin=user.is_admin
+    )
+    return DeleteEntriesResponse(deleted=deleted)
+
+
 @router.post("/generate", response_model=GenerateResponse)
 async def generate_week(
     weekStart: date,
@@ -86,7 +101,9 @@ async def generate_week(
     bearer_token: str = Depends(get_bearer_token),
     service: TimesheetService = Depends(get_timesheet_service),
 ):
-    rows_created = await service.generate_week(user_id=user.email, week_start=weekStart, bearer_token=bearer_token)
+    rows_created = await service.generate_week(
+        user_id=user.email, week_start=weekStart, bearer_token=bearer_token, is_admin=user.is_admin
+    )
     return GenerateResponse(rowsCreated=rows_created)
 
 

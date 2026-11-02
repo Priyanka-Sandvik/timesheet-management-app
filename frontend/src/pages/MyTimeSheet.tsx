@@ -31,10 +31,6 @@ export function MyTimeSheet() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  // Client-side only: the backend has no delete-entries route, so "removing" a task
-  // zeroes its hours (see LoggedTimeCardsTable) and we hide the row locally. Reset
-  // whenever the viewed week changes.
-  const [removedTaskCodes, setRemovedTaskCodes] = useState<Set<string>>(new Set());
 
   const weekStartIso = useMemo(() => toIsoDate(weekStart), [weekStart]);
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
@@ -69,10 +65,6 @@ export function MyTimeSheet() {
     loadTimesheet().finally(() => setLoading(false));
   }, [loadTimesheet]);
 
-  useEffect(() => {
-    setRemovedTaskCodes(new Set());
-  }, [weekStartIso]);
-
   const isSubmitted = timesheet?.status === "Submitted";
   const readOnly = isSubmitted && !isAdmin;
 
@@ -86,6 +78,31 @@ export function MyTimeSheet() {
       showToast("Failed to generate time cards.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Called after the employee adds a project from the sidebar. If this week's cards were
+  // already generated (and the week isn't locked), pull the new task onto the sheet too;
+  // otherwise it would only show up on weeks generated later.
+  async function handleProjectAdded() {
+    await loadTasks();
+    if (hasLoggedCards && !readOnly) {
+      await handleGenerate();
+    }
+  }
+
+  // Adds one assigned task back onto the viewed week at 0h (all 7 days), e.g. after its
+  // card was removed from this week.
+  async function handleAddTaskToWeek(taskCode: string) {
+    try {
+      await timelogApi.bulkUpsertEntries({
+        weekStart: weekStartIso,
+        entries: weekDays.map((d) => ({ taskCode, entryDate: toIsoDate(d), hours: 0 })),
+      });
+      await loadTimesheet();
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to add task to this week.");
     }
   }
 
@@ -103,15 +120,11 @@ export function MyTimeSheet() {
   }
 
   async function handleRemoveTask(taskCode: string) {
-    // See LoggedTimeCardsTable.tsx for why this zeroes hours instead of
-    // calling an undocumented delete-entries endpoint.
+    // Week-scoped: deletes this task's rows for the viewed week only. The assignment and
+    // every other week stay as they are.
     try {
-      await timelogApi.bulkUpsertEntries({
-        weekStart: weekStartIso,
-        entries: weekDays.map((d) => ({ taskCode, entryDate: toIsoDate(d), hours: 0 })),
-      });
+      await timelogApi.removeTaskFromWeek(weekStartIso, taskCode);
       await loadTimesheet();
-      setRemovedTaskCodes((prev) => new Set(prev).add(taskCode));
     } catch (err) {
       console.error(err);
       showToast("Failed to remove task from this week.");
@@ -136,6 +149,24 @@ export function MyTimeSheet() {
   // not require any hours to already be entered, or the grid never leaves the empty state
   // after "Generate Time Cards".
   const hasLoggedCards = (timesheet?.entries.length ?? 0) > 0;
+
+  // Assigned tasks with no row on this week's sheet - e.g. assigned by an admin after the
+  // week was generated. Re-generating only adds the missing rows (at 0h) and leaves
+  // everything already on the sheet untouched.
+  const missingTaskCodes = useMemo(() => {
+    const onSheet = new Set(timesheet?.entries.map((e) => e.taskCode) ?? []);
+    // Closed tasks are never added to a time sheet, so they aren't offered either.
+    return new Set(
+      tasks.filter((t) => t.status !== "Closed" && !onSheet.has(t.taskCode)).map((t) => t.taskCode)
+    );
+  }, [tasks, timesheet]);
+  const missingTaskCount = missingTaskCodes.size;
+
+  // Sidebar "+" is offered only on a generated, editable week (an empty week uses Generate).
+  const addableTaskCodes = useMemo(
+    () => (hasLoggedCards && !readOnly ? missingTaskCodes : new Set<string>()),
+    [hasLoggedCards, readOnly, missingTaskCodes]
+  );
 
   // Employees can't submit a week that starts in a future month — the current month's
   // broken last week (Monday this month, Sunday spilling into next) is still fine. Admins
@@ -168,7 +199,12 @@ export function MyTimeSheet() {
       </div>
 
       <div className={styles.body}>
-        <TaskSidebarPanel tasks={tasks} onProjectAdded={loadTasks} />
+        <TaskSidebarPanel
+          tasks={tasks}
+          addableTaskCodes={addableTaskCodes}
+          onProjectAdded={handleProjectAdded}
+          onAddToWeek={handleAddTaskToWeek}
+        />
 
         <div className={styles.main}>
           {!loading && timesheet && (
@@ -180,14 +216,22 @@ export function MyTimeSheet() {
                 entries={timesheet.entries}
               />
 
-              <div className={styles.loggedTitle}>Logged Time Cards</div>
+              <div className={styles.loggedTitleRow}>
+                <div className={styles.loggedTitle}>Logged Time Cards</div>
+                {hasLoggedCards && !readOnly && missingTaskCount > 0 && (
+                  <button className={styles.syncBtn} onClick={handleGenerate} disabled={busy}>
+                    {busy
+                      ? "Adding..."
+                      : `Add ${missingTaskCount} new ${missingTaskCount === 1 ? "task" : "tasks"} to this week`}
+                  </button>
+                )}
+              </div>
 
               {hasLoggedCards ? (
                 <LoggedTimeCardsTable
                   entries={timesheet.entries}
                   weekDays={weekDays}
                   readOnly={readOnly}
-                  removedTaskCodes={removedTaskCodes}
                   onHourChange={handleHourChange}
                   onRemoveTask={handleRemoveTask}
                 />

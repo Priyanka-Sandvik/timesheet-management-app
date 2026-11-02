@@ -67,6 +67,15 @@ class TaskRepository:
     async def delete_assignment(self, email: str, task_code: str) -> bool:
         return await self._delete(email, task_code)
 
+    async def list_assignments_for_task(self, task_code: str) -> list[dict[str, Any]]:
+        """Every employee assignment row (all partitions except the template) for a task."""
+        results = []
+        query_filter = "RowKey eq @code and PartitionKey ne @template_pk"
+        parameters = {"code": task_code, "template_pk": UNASSIGNED_PARTITION}
+        async for entity in self._table.query_entities(query_filter, parameters=parameters):
+            results.append(dict(entity))
+        return results
+
     async def list_by_partition(self, partition_key: str) -> list[dict[str, Any]]:
         results = []
         query_filter = "PartitionKey eq @pk"

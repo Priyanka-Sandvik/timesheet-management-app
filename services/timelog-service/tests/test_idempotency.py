@@ -133,3 +133,38 @@ async def test_submit_week_rejected_for_future_month(assignments: list[dict]) ->
         await service.submit_week(user_id="erin@sandvik.com", week_start=future_week_start)
     assert exc_info.value.status_code == 409
     assert exc_info.value.code == "FUTURE_PERIOD"
+
+
+@pytest.mark.asyncio
+async def test_regenerate_adds_new_task_at_zero_hours_and_keeps_existing_hours(assignments: list[dict]) -> None:
+    repo = FakeTimesheetRepository()
+    service = TimesheetService(repo, FakeTaskServiceClient(assignments))
+    week_start = date(2026, 8, 3)
+    await service.generate_week(user_id="alice@sandvik.com", week_start=week_start, bearer_token="tok")
+
+    # A task assigned after the week was generated.
+    new_task = {"taskCode": "TASK-C", "taskName": "Task C", "projectName": "Project Z"}
+    service = TimesheetService(repo, FakeTaskServiceClient([*assignments, new_task]))
+    created = await service.generate_week(user_id="alice@sandvik.com", week_start=week_start, bearer_token="tok")
+
+    assert created == 7  # only TASK-C's 7 days
+    by_task: dict[str, set[float]] = {}
+    for e in repo.all_entries():
+        by_task.setdefault(e.task_code, set()).add(e.hours_logged)
+    assert by_task["TASK-C"] == {0.0}
+    assert by_task["TASK-A"] == {0.0, 4.5}  # untouched: 4.5h weekdays, 0h weekend
+
+
+@pytest.mark.asyncio
+async def test_generate_rejected_for_submitted_week(assignments: list[dict]) -> None:
+    from py_common.core.errors import AppError
+
+    repo = FakeTimesheetRepository()
+    service = TimesheetService(repo, FakeTaskServiceClient(assignments))
+    week_start = date(2026, 8, 3)
+    await service.generate_week(user_id="alice@sandvik.com", week_start=week_start, bearer_token="tok")
+    await service.submit_week(user_id="alice@sandvik.com", week_start=week_start)
+
+    with pytest.raises(AppError) as exc_info:
+        await service.generate_week(user_id="alice@sandvik.com", week_start=week_start, bearer_token="tok")
+    assert exc_info.value.status_code == 409

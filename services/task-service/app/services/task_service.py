@@ -208,6 +208,12 @@ class TaskService:
                 code="NOT_FOUND",
                 message=f"Task template '{task_code}' does not exist. Import it before assigning.",
             )
+        if template.get("Status", "Open") == "Closed":
+            raise AppError(
+                status_code=409,
+                code="CONFLICT",
+                message=f"Task '{task_code}' is closed and can't be assigned. Reopen it first.",
+            )
 
         template_fields = {
             "TaskName": template.get("TaskName", ""),
@@ -346,6 +352,16 @@ class TaskService:
             fields["Status"] = update.status
 
         entity = await self._repo.upsert_template(task_code, fields)
+
+        # Each employee's assignment row holds its own copy of Status (taken when it was
+        # assigned), so a status change on the template must be pushed to those copies or
+        # employees keep seeing (and logging time against) the old status.
+        if update.status is not None and update.status != existing.get("Status", "Open"):
+            for assignment in await self._repo.list_assignments_for_task(task_code):
+                await self._repo.upsert_assignment(
+                    assignment["PartitionKey"], task_code, {"Status": update.status}
+                )
+
         log_event(logger, "task_template_update", user=actor_email, task_code=task_code, fields=list(fields.keys()))
         return entity_to_task_out(entity)
 

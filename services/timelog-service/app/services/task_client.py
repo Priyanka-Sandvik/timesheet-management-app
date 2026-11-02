@@ -20,6 +20,14 @@ class TaskAssignment(dict):
         return self.get("taskName")
 
     @property
+    def status(self) -> str:
+        return self.get("status") or "Open"
+
+    @property
+    def is_closed(self) -> bool:
+        return self.status == "Closed"
+
+    @property
     def project_name(self) -> str | None:
         return self.get("projectName")
 
