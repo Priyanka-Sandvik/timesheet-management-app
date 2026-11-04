@@ -13,7 +13,7 @@ ALLOWED_EMAIL_DOMAIN: sandvik.com
 CORS_ALLOWED_ORIGIN: https://red-moss-0342e4b03.6.azurestaticapps.net
 AUTH_RATE_LIMIT_PER_MINUTE: 20
 
-AZURE_STORAGE_CONNECTION_STRING: keyvaultref:https://timesheet-key-vault.vault.azure.net/secrets/AZURE-STORAGE-CONNECTION-STRING/88bbc00cad824d249be48b67d22bbc29
+AZURE_STORAGE_CONNECTION_STRING: keyvaultref:https://timesheet-key-vault.vault.azure.net/secrets/AZURE-STORAGE-CONNECTION-STRING/b0a5c22a1eca4f7a92db223f3571d61f
 
 USE_LOCAL_KEY: false
 
